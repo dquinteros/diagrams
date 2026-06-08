@@ -1,0 +1,244 @@
+import { useState, useCallback, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { DbmlEditor } from "./components/Editor/DbmlEditor";
+import { DiagramCanvas } from "./components/Diagram/DiagramCanvas";
+import { Toolbar } from "./components/Toolbar/Toolbar";
+import { useDbmlParser } from "./hooks/useDbmlParser";
+import { useDiagramLayout } from "./hooks/useDiagramLayout";
+import { useFileOperations } from "./hooks/useFileOperations";
+
+const DEFAULT_CONTENT = `// Welcome to Diagrams — a local DBML editor
+// Start typing your schema below
+
+Table users {
+  id integer [pk, increment]
+  username varchar(50) [unique, not null]
+  email varchar(255) [unique, not null]
+  role varchar(20) [default: 'user']
+  created_at timestamp [default: \`now()\`]
+
+  Note: 'Stores user accounts'
+}
+
+Table posts {
+  id integer [pk, increment]
+  title varchar(255) [not null]
+  body text
+  status varchar(20) [default: 'draft']
+  user_id integer [not null]
+  created_at timestamp [default: \`now()\`]
+}
+
+Table comments {
+  id integer [pk, increment]
+  body text [not null]
+  post_id integer [not null]
+  user_id integer [not null]
+  created_at timestamp [default: \`now()\`]
+}
+
+Table tags {
+  id integer [pk, increment]
+  name varchar(100) [unique, not null]
+}
+
+Table post_tags {
+  post_id integer [not null]
+  tag_id integer [not null]
+
+  indexes {
+    (post_id, tag_id) [unique]
+  }
+}
+
+Ref: posts.user_id > users.id [delete: cascade]
+Ref: comments.post_id > posts.id [delete: cascade]
+Ref: comments.user_id > users.id
+Ref: post_tags.post_id > posts.id [delete: cascade]
+Ref: post_tags.tag_id > tags.id [delete: cascade]
+
+Enum post_status {
+  draft
+  published
+  archived
+}
+`;
+
+function App() {
+  const [content, setContent] = useState(DEFAULT_CONTENT);
+  const [editorKey, setEditorKey] = useState(0);
+  const { schema, parseError, isLoading } = useDbmlParser(content);
+  const layout = useDiagramLayout(schema);
+  const fileOps = useFileOperations();
+  const contentRef = useRef(content);
+  contentRef.current = content;
+
+  const [dividerPos, setDividerPos] = useState(40);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleContentChange = useCallback(
+    (value: string) => {
+      setContent(value);
+      fileOps.setDirty(true);
+    },
+    [fileOps]
+  );
+
+  const handleOpen = useCallback(async () => {
+    const result = await fileOps.openFile();
+    if (result) {
+      setContent(result.content);
+      setEditorKey((k) => k + 1);
+    }
+  }, [fileOps]);
+
+  const handleSave = useCallback(() => {
+    fileOps.saveFile(contentRef.current);
+  }, [fileOps]);
+
+  const handleSaveAs = useCallback(() => {
+    fileOps.saveFileAs(contentRef.current);
+  }, [fileOps]);
+
+  const handleExportSql = useCallback(
+    async (dialect: string) => {
+      try {
+        const sql = await invoke<string>("generate_sql", {
+          input: contentRef.current,
+          dialect,
+        });
+        await fileOps.exportSql(sql, dialect);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        alert(`Export failed: ${msg}`);
+      }
+    },
+    [fileOps]
+  );
+
+  const handleExportSvg = useCallback(() => {
+    const svgEl = document.querySelector("svg");
+    if (!svgEl) return;
+
+    const clone = svgEl.cloneNode(true) as SVGElement;
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const blob = new Blob([clone.outerHTML], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "diagram.svg";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "o") {
+          e.preventDefault();
+          handleOpen();
+        } else if (e.key === "s" && e.shiftKey) {
+          e.preventDefault();
+          handleSaveAs();
+        } else if (e.key === "s") {
+          e.preventDefault();
+          handleSave();
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleOpen, handleSave, handleSaveAs]);
+
+  const handleDividerMouseDown = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging) return;
+      const pct = (e.clientX / window.innerWidth) * 100;
+      setDividerPos(Math.max(15, Math.min(85, pct)));
+    },
+    [isDragging]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+        backgroundColor: "#11111b",
+      }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
+      <Toolbar
+        parseError={parseError}
+        isLoading={isLoading}
+        tableCount={schema?.tables.length ?? 0}
+        refCount={schema?.refs.length ?? 0}
+        filePath={fileOps.filePath}
+        isDirty={fileOps.isDirty}
+        onOpen={handleOpen}
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
+        onExportSql={handleExportSql}
+        onExportSvg={handleExportSvg}
+      />
+      <div
+        style={{
+          display: "flex",
+          flex: 1,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${dividerPos}%`,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <DbmlEditor
+            key={editorKey}
+            initialValue={content}
+            onChange={handleContentChange}
+            parseError={parseError}
+          />
+        </div>
+        <div
+          onMouseDown={handleDividerMouseDown}
+          style={{
+            width: 4,
+            backgroundColor: isDragging ? "#89b4fa" : "#313244",
+            cursor: "col-resize",
+            flexShrink: 0,
+            transition: isDragging ? "none" : "background-color 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            if (!isDragging)
+              (e.target as HTMLElement).style.backgroundColor = "#585b70";
+          }}
+          onMouseLeave={(e) => {
+            if (!isDragging)
+              (e.target as HTMLElement).style.backgroundColor = "#313244";
+          }}
+        />
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          {schema && <DiagramCanvas schema={schema} layout={layout} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
