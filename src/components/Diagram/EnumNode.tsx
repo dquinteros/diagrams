@@ -1,5 +1,5 @@
 import type { EnumIR } from "../../types/schema";
-import type { LayoutNode } from "../../types/layout";
+import type { LayoutNode, DetailLevel } from "../../types/layout";
 import {
   TABLE_WIDTH,
   HEADER_HEIGHT,
@@ -12,12 +12,14 @@ import { useTheme } from "../../context/ThemeContext";
 interface EnumNodeProps {
   enumBlock: EnumIR;
   layout: LayoutNode;
+  detailLevel: DetailLevel;
 }
 
-export function EnumNode({ enumBlock, layout }: EnumNodeProps) {
+export function EnumNode({ enumBlock, layout, detailLevel }: EnumNodeProps) {
   const { theme } = useTheme();
-  const height =
-    HEADER_HEIGHT + enumBlock.values.length * ROW_HEIGHT + TABLE_PADDING * 2;
+  const showValues = detailLevel === "full";
+  const valueCount = showValues ? enumBlock.values.length : 0;
+  const height = HEADER_HEIGHT + valueCount * ROW_HEIGHT + TABLE_PADDING * 2;
 
   return (
     <g transform={`translate(${layout.x}, ${layout.y})`}>
@@ -67,23 +69,24 @@ export function EnumNode({ enumBlock, layout }: EnumNodeProps) {
       >
         {enumBlock.name}
       </text>
-      {enumBlock.values.map((val, i) => {
-        const rowY =
-          HEADER_HEIGHT + TABLE_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
-        return (
-          <text
-            key={val.name}
-            x={12}
-            y={rowY}
-            dominantBaseline="central"
-            fill={theme.columnText}
-            fontSize={12}
-            fontFamily="monospace"
-          >
-            {val.name}
-          </text>
-        );
-      })}
+      {showValues &&
+        enumBlock.values.map((val, i) => {
+          const rowY =
+            HEADER_HEIGHT + TABLE_PADDING + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+          return (
+            <text
+              key={val.name}
+              x={12}
+              y={rowY}
+              dominantBaseline="central"
+              fill={theme.columnText}
+              fontSize={12}
+              fontFamily="monospace"
+            >
+              {val.name}
+            </text>
+          );
+        })}
     </g>
   );
 }

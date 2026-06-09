@@ -23,3 +23,5 @@ export interface LayoutResult {
   width: number;
   height: number;
 }
+
+export type DetailLevel = "full" | "keys-only" | "name-only";

@@ -128,3 +128,48 @@ export function computeLayout(
     height: (graphInfo?.height ?? 600) + MARGIN_Y * 2,
   };
 }
+
+export function recomputeEdges(
+  schema: SchemaIR,
+  nodes: Map<string, LayoutNode>
+): LayoutEdge[] {
+  const edges: LayoutEdge[] = [];
+
+  for (const ref of schema.refs) {
+    const fromNode = nodes.get(ref.fromTable);
+    const toNode = nodes.get(ref.toTable);
+    if (!fromNode || !toNode) continue;
+
+    const fromCol = ref.fromColumns[0] || "";
+    const toCol = ref.toColumns[0] || "";
+    const fromColIdx = findColumnIndex(schema, ref.fromTable, fromCol);
+    const toColIdx = findColumnIndex(schema, ref.toTable, toCol);
+
+    const fromY =
+      fromNode.y + HEADER_HEIGHT + TABLE_PADDING + fromColIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const toY =
+      toNode.y + HEADER_HEIGHT + TABLE_PADDING + toColIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+
+    const fromX = fromNode.x + fromNode.width;
+    const toX = toNode.x;
+    const midX = (fromX + toX) / 2;
+
+    edges.push({
+      from: ref.fromTable,
+      to: ref.toTable,
+      fromColumn: fromCol,
+      toColumn: toCol,
+      fromColumnIndex: fromColIdx,
+      toColumnIndex: toColIdx,
+      relation: ref.relation,
+      points: [
+        { x: fromX, y: fromY },
+        { x: midX, y: fromY },
+        { x: midX, y: toY },
+        { x: toX, y: toY },
+      ],
+    });
+  }
+
+  return edges;
+}

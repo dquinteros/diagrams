@@ -7,6 +7,7 @@ import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
 import { useTheme } from "./context/ThemeContext";
+import type { DetailLevel } from "./types/layout";
 
 const DEFAULT_CONTENT = `// Welcome to Diagrams — a local DBML editor
 // Start typing your schema below
@@ -70,6 +71,7 @@ function App() {
   const [content, setContent] = useState(DEFAULT_CONTENT);
   const [editorKey, setEditorKey] = useState(0);
   const [rankdir, setRankdir] = useState<"LR" | "TB">("LR");
+  const [detailLevel, setDetailLevel] = useState<DetailLevel>("full");
   const { schema, parseError, isLoading } = useDbmlParser(content);
   const layout = useDiagramLayout(schema, rankdir);
   const fileOps = useFileOperations();
@@ -135,6 +137,14 @@ function App() {
 
   const toggleRankdir = useCallback(() => {
     setRankdir((prev) => (prev === "LR" ? "TB" : "LR"));
+  }, []);
+
+  const toggleDetailLevel = useCallback(() => {
+    setDetailLevel((prev) => {
+      const levels: DetailLevel[] = ["full", "keys-only", "name-only"];
+      const idx = levels.indexOf(prev);
+      return levels[(idx + 1) % levels.length];
+    });
   }, []);
 
   useEffect(() => {
@@ -240,6 +250,8 @@ function App() {
               layout={layout}
               rankdir={rankdir}
               onToggleRankdir={toggleRankdir}
+              detailLevel={detailLevel}
+              onToggleDetailLevel={toggleDetailLevel}
             />
           )}
         </div>

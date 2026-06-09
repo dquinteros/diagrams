@@ -1,3 +1,4 @@
+import type { DetailLevel } from "../../types/layout";
 import { useTheme } from "../../context/ThemeContext";
 
 interface ZoomControlsProps {
@@ -7,7 +8,16 @@ interface ZoomControlsProps {
   onFitToScreen: () => void;
   rankdir: "LR" | "TB";
   onToggleRankdir: () => void;
+  detailLevel: DetailLevel;
+  onToggleDetailLevel: () => void;
+  onResetLayout: () => void;
 }
+
+const DETAIL_LABELS: Record<DetailLevel, string> = {
+  full: "All",
+  "keys-only": "Keys",
+  "name-only": "Name",
+};
 
 export function ZoomControls({
   zoomPercentage,
@@ -16,6 +26,9 @@ export function ZoomControls({
   onFitToScreen,
   rankdir,
   onToggleRankdir,
+  detailLevel,
+  onToggleDetailLevel,
+  onResetLayout,
 }: ZoomControlsProps) {
   const { theme } = useTheme();
 
@@ -33,6 +46,12 @@ export function ZoomControls({
     alignItems: "center",
     justifyContent: "center",
     padding: 0,
+  };
+
+  const hover = (e: React.MouseEvent, enter: boolean) => {
+    (e.target as HTMLElement).style.backgroundColor = enter
+      ? theme.controlHoverBg
+      : theme.controlBg;
   };
 
   return (
@@ -55,17 +74,17 @@ export function ZoomControls({
         onClick={onFitToScreen}
         style={btnStyle}
         title="Fit to screen"
-        onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
-        onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlBg)}
+        onMouseEnter={(e) => hover(e, true)}
+        onMouseLeave={(e) => hover(e, false)}
       >
-        {"[ ]"}
+        {"⊡"}
       </button>
       <button
         onClick={onZoomOut}
         style={btnStyle}
         title="Zoom out"
-        onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
-        onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlBg)}
+        onMouseEnter={(e) => hover(e, true)}
+        onMouseLeave={(e) => hover(e, false)}
       >
         -
       </button>
@@ -85,8 +104,8 @@ export function ZoomControls({
         onClick={onZoomIn}
         style={btnStyle}
         title="Zoom in"
-        onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
-        onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlBg)}
+        onMouseEnter={(e) => hover(e, true)}
+        onMouseLeave={(e) => hover(e, false)}
       >
         +
       </button>
@@ -95,10 +114,28 @@ export function ZoomControls({
         onClick={onToggleRankdir}
         style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
         title={`Layout: ${rankdir === "LR" ? "Left to Right" : "Top to Bottom"}`}
-        onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
-        onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlBg)}
+        onMouseEnter={(e) => hover(e, true)}
+        onMouseLeave={(e) => hover(e, false)}
       >
         {rankdir}
+      </button>
+      <button
+        onClick={onToggleDetailLevel}
+        style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
+        title={`Detail: ${DETAIL_LABELS[detailLevel]}`}
+        onMouseEnter={(e) => hover(e, true)}
+        onMouseLeave={(e) => hover(e, false)}
+      >
+        {DETAIL_LABELS[detailLevel]}
+      </button>
+      <button
+        onClick={onResetLayout}
+        style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
+        title="Reset layout (undo manual positioning)"
+        onMouseEnter={(e) => hover(e, true)}
+        onMouseLeave={(e) => hover(e, false)}
+      >
+        Reset
       </button>
     </div>
   );

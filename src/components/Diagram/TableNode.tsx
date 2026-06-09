@@ -1,5 +1,5 @@
 import type { TableIR, SchemaIR } from "../../types/schema";
-import type { LayoutNode } from "../../types/layout";
+import type { LayoutNode, DetailLevel } from "../../types/layout";
 import { ColumnRow } from "./ColumnRow";
 import {
   TABLE_WIDTH,
@@ -16,6 +16,8 @@ interface TableNodeProps {
   schema: SchemaIR;
   isSelected: boolean;
   onSelect: (tableName: string) => void;
+  onDragStart: (tableName: string, e: React.MouseEvent) => void;
+  detailLevel: DetailLevel;
 }
 
 export function TableNode({
@@ -24,10 +26,10 @@ export function TableNode({
   schema,
   isSelected,
   onSelect,
+  onDragStart,
+  detailLevel,
 }: TableNodeProps) {
   const { theme } = useTheme();
-  const height =
-    HEADER_HEIGHT + table.columns.length * ROW_HEIGHT + TABLE_PADDING * 2;
 
   const fkColumns = new Set<string>();
   for (const ref of schema.refs) {
@@ -39,10 +41,20 @@ export function TableNode({
     }
   }
 
+  const visibleColumns =
+    detailLevel === "name-only"
+      ? []
+      : detailLevel === "keys-only"
+        ? table.columns.filter((c) => c.isPk || fkColumns.has(c.name))
+        : table.columns;
+
+  const height =
+    HEADER_HEIGHT + visibleColumns.length * ROW_HEIGHT + TABLE_PADDING * 2;
+
   return (
     <g
       transform={`translate(${layout.x}, ${layout.y})`}
-      onClick={() => onSelect(table.name)}
+      onMouseDown={(e) => onDragStart(table.name, e)}
       style={{ cursor: "pointer" }}
     >
       <rect
@@ -80,17 +92,19 @@ export function TableNode({
       >
         {table.schema ? `${table.schema}.${table.name}` : table.name}
       </text>
-      <g transform={`translate(0, ${HEADER_HEIGHT + TABLE_PADDING})`}>
-        {table.columns.map((col, i) => (
-          <ColumnRow
-            key={col.name}
-            column={col}
-            index={i}
-            y={0}
-            isFk={fkColumns.has(col.name)}
-          />
-        ))}
-      </g>
+      {visibleColumns.length > 0 && (
+        <g transform={`translate(0, ${HEADER_HEIGHT + TABLE_PADDING})`}>
+          {visibleColumns.map((col, i) => (
+            <ColumnRow
+              key={col.name}
+              column={col}
+              index={i}
+              y={0}
+              isFk={fkColumns.has(col.name)}
+            />
+          ))}
+        </g>
+      )}
     </g>
   );
 }
