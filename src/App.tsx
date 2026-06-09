@@ -75,6 +75,8 @@ function App() {
   const [detailLevel, setDetailLevel] = useState<DetailLevel>("full");
   const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
   const editorRef = useRef<DbmlEditorHandle>(null);
+  const schemaRef = useRef(schema);
+  schemaRef.current = schema;
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { schema, parseError, isLoading } = useDbmlParser(content);
   const layout = useDiagramLayout(schema, rankdir);
@@ -248,6 +250,7 @@ function App() {
             onChange={handleContentChange}
             onCursorChange={handleCursorChange}
             parseError={parseError}
+            schemaRef={schemaRef}
           />
         </div>
         <div

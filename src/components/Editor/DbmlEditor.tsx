@@ -8,11 +8,13 @@ import {
   highlightActiveLine,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { bracketMatching, indentOnInput } from "@codemirror/language";
-import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { bracketMatching, indentOnInput, foldGutter, codeFolding } from "@codemirror/language";
+import { closeBrackets, closeBracketsKeymap, autocompletion } from "@codemirror/autocomplete";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { dbmlLanguage } from "./dbmlLanguage";
-import type { ParseError } from "../../types/schema";
+import type { ParseError, SchemaIR } from "../../types/schema";
+import { createDbmlCompletion } from "./dbmlCompletion";
+import { dbmlFoldService } from "./dbmlFolding";
 import { useTheme } from "../../context/ThemeContext";
 import type { Theme } from "../../lib/themes";
 
@@ -71,10 +73,11 @@ interface DbmlEditorProps {
   onChange: (value: string) => void;
   onCursorChange?: (offset: number) => void;
   parseError: ParseError | null;
+  schemaRef?: React.MutableRefObject<SchemaIR | null>;
 }
 
 export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(
-  function DbmlEditor({ initialValue, onChange, onCursorChange, parseError }, ref) {
+  function DbmlEditor({ initialValue, onChange, onCursorChange, parseError, schemaRef }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
@@ -113,6 +116,13 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(
           highlightActiveLine(),
           highlightSelectionMatches(),
           dbmlLanguage,
+          codeFolding(),
+          foldGutter(),
+          dbmlFoldService,
+          autocompletion({
+            override: schemaRef ? [createDbmlCompletion(schemaRef)] : [],
+            activateOnTyping: true,
+          }),
           keymap.of([
             ...closeBracketsKeymap,
             ...defaultKeymap,
