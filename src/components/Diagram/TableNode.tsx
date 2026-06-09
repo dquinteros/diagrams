@@ -78,14 +78,14 @@ export function TableNode({
         height={HEADER_HEIGHT}
         rx={TABLE_BORDER_RADIUS}
         ry={TABLE_BORDER_RADIUS}
-        fill={theme.tableHeader}
+        fill={table.headerColor ?? theme.tableHeader}
       />
       <rect
         x={0}
         y={HEADER_HEIGHT - TABLE_BORDER_RADIUS}
         width={TABLE_WIDTH}
         height={TABLE_BORDER_RADIUS}
-        fill={theme.tableHeader}
+        fill={table.headerColor ?? theme.tableHeader}
       />
       <text
         x={TABLE_WIDTH / 2}

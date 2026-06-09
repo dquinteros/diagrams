@@ -13,6 +13,7 @@ export interface TableIR {
   columns: ColumnIR[];
   indexes: IndexIR[];
   note: string | null;
+  headerColor: string | null;
   spanRange: [number, number];
 }
 

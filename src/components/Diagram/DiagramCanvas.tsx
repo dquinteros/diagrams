@@ -9,6 +9,8 @@ import { RelationshipEdge } from "./RelationshipEdge";
 import { EnumNode } from "./EnumNode";
 import { ZoomControls } from "./ZoomControls";
 import { Tooltip } from "./Tooltip";
+import { TableGroupRect } from "./TableGroupRect";
+import { SearchBar } from "./SearchBar";
 
 interface HoverInfo {
   tableName: string;
@@ -137,6 +139,9 @@ export function DiagramCanvas({
       >
         <rect className="canvas-bg" width="100%" height="100%" fill={theme.canvasBg} />
         <g transform={`translate(${vt.transform.x}, ${vt.transform.y}) scale(${vt.transform.scale})`}>
+          {schema.tableGroups.map((group) => (
+            <TableGroupRect key={group.name} group={group} nodes={np.nodes} />
+          ))}
           {np.edges.map((edge, i) => (
             <RelationshipEdge key={`${edge.from}-${edge.to}-${i}`} edge={edge} />
           ))}
@@ -182,6 +187,12 @@ export function DiagramCanvas({
         detailLevel={detailLevel}
         onToggleDetailLevel={onToggleDetailLevel}
         onResetLayout={np.resetPositions}
+      />
+      <SearchBar
+        schema={schema}
+        nodes={np.nodes}
+        onNavigateToTable={vt.panToNode}
+        onHighlight={setSelectedTable}
       />
       {tooltipContent && hoverInfo && (
         <Tooltip x={hoverInfo.x} y={hoverInfo.y} content={tooltipContent} />

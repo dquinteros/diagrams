@@ -20,6 +20,7 @@ pub struct TableIR {
     pub columns: Vec<ColumnIR>,
     pub indexes: Vec<IndexIR>,
     pub note: Option<String>,
+    pub header_color: Option<String>,
     pub span_range: (usize, usize),
 }
 
@@ -129,6 +130,13 @@ fn convert_table(table: &ast::TableBlock) -> TableIR {
         .map(|idx| idx.defs.iter().map(convert_index).collect())
         .unwrap_or_default();
 
+    let header_color = table.settings.as_ref().and_then(|s| {
+        s.attributes
+            .iter()
+            .find(|a| a.key.to_string == "headercolor")
+            .and_then(|a| a.value.as_ref().map(|v| v.raw.clone()))
+    });
+
     TableIR {
         name: table.ident.name.to_string.clone(),
         schema: table.ident.schema.as_ref().map(|s| s.to_string.clone()),
@@ -136,6 +144,7 @@ fn convert_table(table: &ast::TableBlock) -> TableIR {
         columns,
         indexes,
         note: table.note.as_ref().map(|n| n.value.raw.clone()),
+        header_color,
         span_range: (table.span_range.start, table.span_range.end),
     }
 }
