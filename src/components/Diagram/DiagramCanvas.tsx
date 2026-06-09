@@ -8,6 +8,14 @@ import { TableNode } from "./TableNode";
 import { RelationshipEdge } from "./RelationshipEdge";
 import { EnumNode } from "./EnumNode";
 import { ZoomControls } from "./ZoomControls";
+import { Tooltip } from "./Tooltip";
+
+interface HoverInfo {
+  tableName: string;
+  columnName?: string;
+  x: number;
+  y: number;
+}
 
 interface DiagramCanvasProps {
   schema: SchemaIR;
@@ -16,6 +24,8 @@ interface DiagramCanvasProps {
   onToggleRankdir: () => void;
   detailLevel: DetailLevel;
   onToggleDetailLevel: () => void;
+  highlightedTable: string | null;
+  onNavigateToSource?: (spanRange: [number, number]) => void;
 }
 
 const DRAG_THRESHOLD = 5;
@@ -27,11 +37,14 @@ export function DiagramCanvas({
   onToggleRankdir,
   detailLevel,
   onToggleDetailLevel,
+  highlightedTable,
+  onNavigateToSource,
 }: DiagramCanvasProps) {
   const { theme } = useTheme();
   const vt = useViewTransform(layout);
   const np = useNodePositions(layout, schema);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
   const dragStateRef = useRef<{
     tableName: string;
@@ -81,10 +94,8 @@ export function DiagramCanvas({
       if (ds) {
         const dx = (e.clientX - ds.startMouseX) / vt.transform.scale;
         const dy = (e.clientY - ds.startMouseY) / vt.transform.scale;
-
         if (!ds.moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
         ds.moved = true;
-
         np.moveNode(ds.tableName, ds.startNodeX + dx, ds.startNodeY + dy);
       } else {
         vt.handleMouseMove(e);
@@ -105,11 +116,11 @@ export function DiagramCanvas({
     vt.handleMouseUp();
   }, [vt, np]);
 
-  const cursor = np.isDragging
-    ? "move"
-    : vt.isPanning
-      ? "grabbing"
-      : "grab";
+  const activeTable = selectedTable ?? highlightedTable;
+
+  const cursor = np.isDragging ? "move" : vt.isPanning ? "grabbing" : "grab";
+
+  const tooltipContent = getTooltipContent(schema, hoverInfo);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -124,12 +135,7 @@ export function DiagramCanvas({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        <rect
-          className="canvas-bg"
-          width="100%"
-          height="100%"
-          fill={theme.canvasBg}
-        />
+        <rect className="canvas-bg" width="100%" height="100%" fill={theme.canvasBg} />
         <g transform={`translate(${vt.transform.x}, ${vt.transform.y}) scale(${vt.transform.scale})`}>
           {np.edges.map((edge, i) => (
             <RelationshipEdge key={`${edge.from}-${edge.to}-${i}`} edge={edge} />
@@ -143,9 +149,11 @@ export function DiagramCanvas({
                 table={table}
                 layout={nodeLayout}
                 schema={schema}
-                isSelected={selectedTable === table.name}
+                isSelected={activeTable === table.name}
                 onSelect={setSelectedTable}
                 onDragStart={handleTableDragStart}
+                onNavigateToSource={onNavigateToSource}
+                onHover={setHoverInfo}
                 detailLevel={detailLevel}
               />
             );
@@ -175,6 +183,27 @@ export function DiagramCanvas({
         onToggleDetailLevel={onToggleDetailLevel}
         onResetLayout={np.resetPositions}
       />
+      {tooltipContent && hoverInfo && (
+        <Tooltip x={hoverInfo.x} y={hoverInfo.y} content={tooltipContent} />
+      )}
     </div>
   );
+}
+
+function getTooltipContent(schema: SchemaIR, hover: HoverInfo | null): string | null {
+  if (!hover) return null;
+  const table = schema.tables.find((t) => t.name === hover.tableName);
+  if (!table) return null;
+
+  if (hover.columnName) {
+    const col = table.columns.find((c) => c.name === hover.columnName);
+    if (!col) return null;
+    const enumDef = schema.enums.find((e) => e.name === col.type);
+    if (enumDef) {
+      return `enum ${enumDef.name}:\n${enumDef.values.map((v) => `  ${v.name}`).join("\n")}`;
+    }
+    return col.note ?? null;
+  }
+
+  return table.note ?? null;
 }

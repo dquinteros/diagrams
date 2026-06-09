@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { DbmlEditor } from "./components/Editor/DbmlEditor";
+import { DbmlEditor, type DbmlEditorHandle } from "./components/Editor/DbmlEditor";
+import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { DiagramCanvas } from "./components/Diagram/DiagramCanvas";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { useDbmlParser } from "./hooks/useDbmlParser";
@@ -72,6 +73,9 @@ function App() {
   const [editorKey, setEditorKey] = useState(0);
   const [rankdir, setRankdir] = useState<"LR" | "TB">("LR");
   const [detailLevel, setDetailLevel] = useState<DetailLevel>("full");
+  const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
+  const editorRef = useRef<DbmlEditorHandle>(null);
+  const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { schema, parseError, isLoading } = useDbmlParser(content);
   const layout = useDiagramLayout(schema, rankdir);
   const fileOps = useFileOperations();
@@ -138,6 +142,25 @@ function App() {
   const toggleRankdir = useCallback(() => {
     setRankdir((prev) => (prev === "LR" ? "TB" : "LR"));
   }, []);
+
+  const handleCursorChange = useCallback(
+    (offset: number) => {
+      if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
+      cursorTimerRef.current = setTimeout(() => {
+        if (!schema) return;
+        const tableName = findTableAtOffset(schema, offset);
+        setHighlightedTable(tableName);
+      }, 100);
+    },
+    [schema]
+  );
+
+  const handleNavigateToSource = useCallback(
+    (spanRange: [number, number]) => {
+      editorRef.current?.scrollToOffset(spanRange[0]);
+    },
+    []
+  );
 
   const toggleDetailLevel = useCallback(() => {
     setDetailLevel((prev) => {
@@ -219,9 +242,11 @@ function App() {
           }}
         >
           <DbmlEditor
+            ref={editorRef}
             key={editorKey}
             initialValue={content}
             onChange={handleContentChange}
+            onCursorChange={handleCursorChange}
             parseError={parseError}
           />
         </div>
@@ -252,6 +277,8 @@ function App() {
               onToggleRankdir={toggleRankdir}
               detailLevel={detailLevel}
               onToggleDetailLevel={toggleDetailLevel}
+              highlightedTable={highlightedTable}
+              onNavigateToSource={handleNavigateToSource}
             />
           )}
         </div>

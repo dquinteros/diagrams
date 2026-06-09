@@ -17,6 +17,8 @@ interface TableNodeProps {
   isSelected: boolean;
   onSelect: (tableName: string) => void;
   onDragStart: (tableName: string, e: React.MouseEvent) => void;
+  onNavigateToSource?: (spanRange: [number, number]) => void;
+  onHover?: (info: { tableName: string; columnName?: string; x: number; y: number } | null) => void;
   detailLevel: DetailLevel;
 }
 
@@ -27,6 +29,8 @@ export function TableNode({
   isSelected,
   onSelect,
   onDragStart,
+  onNavigateToSource,
+  onHover,
   detailLevel,
 }: TableNodeProps) {
   const { theme } = useTheme();
@@ -55,6 +59,9 @@ export function TableNode({
     <g
       transform={`translate(${layout.x}, ${layout.y})`}
       onMouseDown={(e) => onDragStart(table.name, e)}
+      onDoubleClick={() => onNavigateToSource?.(table.spanRange)}
+      onMouseEnter={(e) => onHover?.({ tableName: table.name, x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => onHover?.(null)}
       style={{ cursor: "pointer" }}
     >
       <rect

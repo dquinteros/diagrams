@@ -1,11 +1,16 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
 import { EditorState, Compartment } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine } from "@codemirror/view";
+import {
+  EditorView,
+  keymap,
+  lineNumbers,
+  drawSelection,
+  highlightActiveLine,
+} from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
-import { linter, type Diagnostic } from "@codemirror/lint";
 import { dbmlLanguage } from "./dbmlLanguage";
 import type { ParseError } from "../../types/schema";
 import { useTheme } from "../../context/ThemeContext";
@@ -22,7 +27,11 @@ function buildEditorTheme(t: Theme) {
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
       backgroundColor: t.editorSelection,
     },
-    ".cm-gutters": { backgroundColor: t.editorGutterBg, color: t.editorGutterText, border: "none" },
+    ".cm-gutters": {
+      backgroundColor: t.editorGutterBg,
+      color: t.editorGutterText,
+      border: "none",
+    },
     ".cm-activeLine": { backgroundColor: t.editorActiveLine },
     ".cm-activeLineGutter": { backgroundColor: t.editorActiveLine },
     ".cm-matchingBracket": {
@@ -53,86 +62,97 @@ function buildSyntaxTheme(t: Theme) {
   });
 }
 
+export interface DbmlEditorHandle {
+  scrollToOffset: (offset: number) => void;
+}
+
 interface DbmlEditorProps {
   initialValue: string;
   onChange: (value: string) => void;
+  onCursorChange?: (offset: number) => void;
   parseError: ParseError | null;
 }
 
-export function DbmlEditor({ initialValue, onChange, parseError }: DbmlEditorProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const { theme } = useTheme();
-  const themeCompartment = useRef(new Compartment());
-  const syntaxCompartment = useRef(new Compartment());
+export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(
+  function DbmlEditor({ initialValue, onChange, onCursorChange, parseError }, ref) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const viewRef = useRef<EditorView | null>(null);
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+    const onCursorChangeRef = useRef(onCursorChange);
+    onCursorChangeRef.current = onCursorChange;
+    const { theme } = useTheme();
+    const themeCompartment = useRef(new Compartment());
+    const syntaxCompartment = useRef(new Compartment());
 
-  const errorLinter = useCallback(() => {
-    return linter((view) => {
-      if (!parseError?.span) return [];
-      const doc = view.state.doc;
-      const [from, to] = parseError.span;
-      const safeFrom = Math.min(from, doc.length);
-      const safeTo = Math.min(Math.max(to, safeFrom + 1), doc.length);
-      const diagnostic: Diagnostic = {
-        from: safeFrom,
-        to: safeTo,
-        severity: "error",
-        message: parseError.message,
+    useImperativeHandle(ref, () => ({
+      scrollToOffset(offset: number) {
+        const view = viewRef.current;
+        if (!view) return;
+        const safeOffset = Math.min(offset, view.state.doc.length);
+        view.dispatch({
+          selection: { anchor: safeOffset },
+          effects: EditorView.scrollIntoView(safeOffset, { y: "center" }),
+        });
+        view.focus();
+      },
+    }));
+
+    useEffect(() => {
+      if (!containerRef.current) return;
+
+      const state = EditorState.create({
+        doc: initialValue,
+        extensions: [
+          lineNumbers(),
+          history(),
+          drawSelection(),
+          indentOnInput(),
+          bracketMatching(),
+          closeBrackets(),
+          highlightActiveLine(),
+          highlightSelectionMatches(),
+          dbmlLanguage,
+          keymap.of([
+            ...closeBracketsKeymap,
+            ...defaultKeymap,
+            ...searchKeymap,
+            ...historyKeymap,
+          ]),
+          themeCompartment.current.of(buildEditorTheme(theme)),
+          syntaxCompartment.current.of(buildSyntaxTheme(theme)),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              onChangeRef.current(update.state.doc.toString());
+            }
+            if (update.selectionSet) {
+              const offset = update.state.selection.main.head;
+              onCursorChangeRef.current?.(offset);
+            }
+          }),
+        ],
+      });
+
+      const view = new EditorView({ state, parent: containerRef.current });
+      viewRef.current = view;
+      return () => {
+        view.destroy();
       };
-      return [diagnostic];
-    });
-  }, [parseError]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!containerRef.current) return;
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch({
+        effects: [
+          themeCompartment.current.reconfigure(buildEditorTheme(theme)),
+          syntaxCompartment.current.reconfigure(buildSyntaxTheme(theme)),
+        ],
+      });
+    }, [theme]);
 
-    const state = EditorState.create({
-      doc: initialValue,
-      extensions: [
-        lineNumbers(),
-        history(),
-        drawSelection(),
-        indentOnInput(),
-        bracketMatching(),
-        closeBrackets(),
-        highlightActiveLine(),
-        highlightSelectionMatches(),
-        dbmlLanguage,
-        keymap.of([
-          ...closeBracketsKeymap,
-          ...defaultKeymap,
-          ...searchKeymap,
-          ...historyKeymap,
-        ]),
-        themeCompartment.current.of(buildEditorTheme(theme)),
-        syntaxCompartment.current.of(buildSyntaxTheme(theme)),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            onChangeRef.current(update.state.doc.toString());
-          }
-        }),
-      ],
-    });
-
-    const view = new EditorView({ state, parent: containerRef.current });
-    viewRef.current = view;
-    return () => { view.destroy(); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    view.dispatch({
-      effects: [
-        themeCompartment.current.reconfigure(buildEditorTheme(theme)),
-        syntaxCompartment.current.reconfigure(buildSyntaxTheme(theme)),
-      ],
-    });
-  }, [theme]);
-
-  return (
-    <div ref={containerRef} style={{ height: "100%", overflow: "hidden" }} />
-  );
-}
+    return (
+      <div ref={containerRef} style={{ height: "100%", overflow: "hidden" }} />
+    );
+  }
+);
