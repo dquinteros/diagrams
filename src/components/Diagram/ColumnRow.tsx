@@ -1,5 +1,6 @@
 import type { ColumnIR } from "../../types/schema";
-import { ROW_HEIGHT, TABLE_WIDTH, COLORS } from "../../lib/constants";
+import { ROW_HEIGHT, TABLE_WIDTH } from "../../lib/constants";
+import { useTheme } from "../../context/ThemeContext";
 
 interface ColumnRowProps {
   column: ColumnIR;
@@ -9,6 +10,7 @@ interface ColumnRowProps {
 }
 
 export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
+  const { theme } = useTheme();
   const rowY = y + index * ROW_HEIGHT;
   const textY = rowY + ROW_HEIGHT / 2;
 
@@ -20,7 +22,7 @@ export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
           y1={rowY}
           x2={TABLE_WIDTH}
           y2={rowY}
-          stroke={COLORS.tableBorder}
+          stroke={theme.tableBorder}
           strokeWidth={0.5}
           opacity={0.3}
         />
@@ -29,7 +31,7 @@ export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
         x={12}
         y={textY}
         dominantBaseline="central"
-        fill={COLORS.columnText}
+        fill={theme.columnText}
         fontSize={12}
         fontFamily="monospace"
       >
@@ -40,7 +42,7 @@ export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
         y={textY}
         dominantBaseline="central"
         textAnchor="end"
-        fill={COLORS.columnType}
+        fill={theme.columnType}
         fontSize={11}
         fontFamily="monospace"
       >
@@ -52,7 +54,7 @@ export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
           y={textY}
           dominantBaseline="central"
           textAnchor="end"
-          fill={COLORS.pkBadge}
+          fill={theme.pkBadge}
           fontSize={9}
           fontWeight="bold"
         >
@@ -65,7 +67,7 @@ export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
           y={textY}
           dominantBaseline="central"
           textAnchor="end"
-          fill={COLORS.fkBadge}
+          fill={theme.fkBadge}
           fontSize={9}
           fontWeight="bold"
         >

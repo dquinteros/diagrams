@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from "react";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
@@ -8,62 +8,50 @@ import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import { dbmlLanguage } from "./dbmlLanguage";
 import type { ParseError } from "../../types/schema";
+import { useTheme } from "../../context/ThemeContext";
+import type { Theme } from "../../lib/themes";
 
-const theme = EditorView.theme({
-  "&": {
-    height: "100%",
-    fontSize: "14px",
-    backgroundColor: "#1e1e2e",
-  },
-  ".cm-content": {
-    caretColor: "#f5e0dc",
-    fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-  },
-  ".cm-cursor": {
-    borderLeftColor: "#f5e0dc",
-  },
-  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
-    backgroundColor: "#45475a",
-  },
-  ".cm-gutters": {
-    backgroundColor: "#181825",
-    color: "#6c7086",
-    border: "none",
-  },
-  ".cm-activeLine": {
-    backgroundColor: "#181825",
-  },
-  ".cm-activeLineGutter": {
-    backgroundColor: "#181825",
-  },
-  ".cm-matchingBracket": {
-    backgroundColor: "#45475a",
-    outline: "1px solid #585b70",
-  },
-  ".cm-line": {
-    padding: "0 4px",
-  },
-  ".cm-tooltip": {
-    backgroundColor: "#313244",
-    border: "1px solid #45475a",
-    color: "#cdd6f4",
-  },
-  ".cm-diagnostic-error": {
-    borderBottom: "2px solid #f38ba8",
-  },
-});
+function buildEditorTheme(t: Theme) {
+  return EditorView.theme({
+    "&": { height: "100%", fontSize: "14px", backgroundColor: t.editorBg },
+    ".cm-content": {
+      caretColor: t.editorCaret,
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+    },
+    ".cm-cursor": { borderLeftColor: t.editorCaret },
+    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
+      backgroundColor: t.editorSelection,
+    },
+    ".cm-gutters": { backgroundColor: t.editorGutterBg, color: t.editorGutterText, border: "none" },
+    ".cm-activeLine": { backgroundColor: t.editorActiveLine },
+    ".cm-activeLineGutter": { backgroundColor: t.editorActiveLine },
+    ".cm-matchingBracket": {
+      backgroundColor: t.editorMatchBracket,
+      outline: `1px solid ${t.editorMatchBracketBorder}`,
+    },
+    ".cm-line": { padding: "0 4px" },
+    ".cm-tooltip": {
+      backgroundColor: t.tableHeader,
+      border: `1px solid ${t.controlBorder}`,
+      color: t.toolbarText,
+    },
+    ".cm-diagnostic-error": { borderBottom: `2px solid ${t.errorText}` },
+  });
+}
 
-const syntaxHighlighting = EditorView.theme({
-  ".ͼb": { color: "#cba6f7" },       // keyword
-  ".ͼd": { color: "#a6e3a1" },       // string
-  ".ͼi": { color: "#a6e3a1" },       // string-2 (backtick expressions)
-  ".ͼe": { color: "#fab387" },       // number
-  ".ͼc": { color: "#6c7086" },       // comment
-  ".ͼ7": { color: "#89b4fa" },       // operator
-  ".ͼ8": { color: "#585b70" },       // bracket
-  ".ͼf": { color: "#f9e2af" },       // typeName
-  ".ͼ9": { color: "#cdd6f4" },       // variableName
-});
+function buildSyntaxTheme(t: Theme) {
+  return EditorView.theme({
+    ".ͼb": { color: t.syntaxKeyword },
+    ".ͼd": { color: t.syntaxString },
+    ".ͼi": { color: t.syntaxString },
+    ".ͼe": { color: t.syntaxNumber },
+    ".ͼc": { color: t.syntaxComment },
+    ".ͼ7": { color: t.syntaxOperator },
+    ".ͼ8": { color: t.syntaxBracket },
+    ".ͼf": { color: t.syntaxType },
+    ".ͼ9": { color: t.syntaxVariable },
+  });
+}
 
 interface DbmlEditorProps {
   initialValue: string;
@@ -76,6 +64,9 @@ export function DbmlEditor({ initialValue, onChange, parseError }: DbmlEditorPro
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const { theme } = useTheme();
+  const themeCompartment = useRef(new Compartment());
+  const syntaxCompartment = useRef(new Compartment());
 
   const errorLinter = useCallback(() => {
     return linter((view) => {
@@ -84,7 +75,6 @@ export function DbmlEditor({ initialValue, onChange, parseError }: DbmlEditorPro
       const [from, to] = parseError.span;
       const safeFrom = Math.min(from, doc.length);
       const safeTo = Math.min(Math.max(to, safeFrom + 1), doc.length);
-
       const diagnostic: Diagnostic = {
         from: safeFrom,
         to: safeTo,
@@ -116,8 +106,8 @@ export function DbmlEditor({ initialValue, onChange, parseError }: DbmlEditorPro
           ...searchKeymap,
           ...historyKeymap,
         ]),
-        theme,
-        syntaxHighlighting,
+        themeCompartment.current.of(buildEditorTheme(theme)),
+        syntaxCompartment.current.of(buildSyntaxTheme(theme)),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChangeRef.current(update.state.doc.toString());
@@ -126,22 +116,23 @@ export function DbmlEditor({ initialValue, onChange, parseError }: DbmlEditorPro
       ],
     });
 
-    const view = new EditorView({
-      state,
-      parent: containerRef.current,
-    });
-
+    const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
-
-    return () => {
-      view.destroy();
-    };
+    return () => { view.destroy(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: [
+        themeCompartment.current.reconfigure(buildEditorTheme(theme)),
+        syntaxCompartment.current.reconfigure(buildSyntaxTheme(theme)),
+      ],
+    });
+  }, [theme]);
+
   return (
-    <div
-      ref={containerRef}
-      style={{ height: "100%", overflow: "hidden" }}
-    />
+    <div ref={containerRef} style={{ height: "100%", overflow: "hidden" }} />
   );
 }

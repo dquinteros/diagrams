@@ -6,6 +6,7 @@ import { Toolbar } from "./components/Toolbar/Toolbar";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
+import { useTheme } from "./context/ThemeContext";
 
 const DEFAULT_CONTENT = `// Welcome to Diagrams — a local DBML editor
 // Start typing your schema below
@@ -65,16 +66,18 @@ Enum post_status {
 `;
 
 function App() {
+  const { theme } = useTheme();
   const [content, setContent] = useState(DEFAULT_CONTENT);
   const [editorKey, setEditorKey] = useState(0);
+  const [rankdir, setRankdir] = useState<"LR" | "TB">("LR");
   const { schema, parseError, isLoading } = useDbmlParser(content);
-  const layout = useDiagramLayout(schema);
+  const layout = useDiagramLayout(schema, rankdir);
   const fileOps = useFileOperations();
   const contentRef = useRef(content);
   contentRef.current = content;
 
   const [dividerPos, setDividerPos] = useState(40);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
 
   const handleContentChange = useCallback(
     (value: string) => {
@@ -119,7 +122,6 @@ function App() {
   const handleExportSvg = useCallback(() => {
     const svgEl = document.querySelector("svg");
     if (!svgEl) return;
-
     const clone = svgEl.cloneNode(true) as SVGElement;
     clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     const blob = new Blob([clone.outerHTML], { type: "image/svg+xml" });
@@ -129,6 +131,10 @@ function App() {
     a.download = "diagram.svg";
     a.click();
     URL.revokeObjectURL(url);
+  }, []);
+
+  const toggleRankdir = useCallback(() => {
+    setRankdir((prev) => (prev === "LR" ? "TB" : "LR"));
   }, []);
 
   useEffect(() => {
@@ -151,20 +157,20 @@ function App() {
   }, [handleOpen, handleSave, handleSaveAs]);
 
   const handleDividerMouseDown = useCallback(() => {
-    setIsDragging(true);
+    setIsDraggingDivider(true);
   }, []);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!isDragging) return;
+      if (!isDraggingDivider) return;
       const pct = (e.clientX / window.innerWidth) * 100;
       setDividerPos(Math.max(15, Math.min(85, pct)));
     },
-    [isDragging]
+    [isDraggingDivider]
   );
 
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+    setIsDraggingDivider(false);
   }, []);
 
   return (
@@ -175,7 +181,7 @@ function App() {
         height: "100vh",
         width: "100vw",
         overflow: "hidden",
-        backgroundColor: "#11111b",
+        backgroundColor: theme.canvasBg,
       }}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -193,13 +199,7 @@ function App() {
         onExportSql={handleExportSql}
         onExportSvg={handleExportSvg}
       />
-      <div
-        style={{
-          display: "flex",
-          flex: 1,
-          overflow: "hidden",
-        }}
-      >
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div
           style={{
             width: `${dividerPos}%`,
@@ -219,22 +219,29 @@ function App() {
           onMouseDown={handleDividerMouseDown}
           style={{
             width: 4,
-            backgroundColor: isDragging ? "#89b4fa" : "#313244",
+            backgroundColor: isDraggingDivider ? theme.dividerActive : theme.divider,
             cursor: "col-resize",
             flexShrink: 0,
-            transition: isDragging ? "none" : "background-color 0.2s",
+            transition: isDraggingDivider ? "none" : "background-color 0.2s",
           }}
           onMouseEnter={(e) => {
-            if (!isDragging)
-              (e.target as HTMLElement).style.backgroundColor = "#585b70";
+            if (!isDraggingDivider)
+              (e.target as HTMLElement).style.backgroundColor = theme.dividerHover;
           }}
           onMouseLeave={(e) => {
-            if (!isDragging)
-              (e.target as HTMLElement).style.backgroundColor = "#313244";
+            if (!isDraggingDivider)
+              (e.target as HTMLElement).style.backgroundColor = theme.divider;
           }}
         />
         <div style={{ flex: 1, overflow: "hidden" }}>
-          {schema && <DiagramCanvas schema={schema} layout={layout} />}
+          {schema && (
+            <DiagramCanvas
+              schema={schema}
+              layout={layout}
+              rankdir={rankdir}
+              onToggleRankdir={toggleRankdir}
+            />
+          )}
         </div>
       </div>
     </div>

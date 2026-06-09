@@ -10,9 +10,12 @@ const EMPTY_LAYOUT: LayoutResult = {
   height: 0,
 };
 
-export function useDiagramLayout(schema: SchemaIR | null): LayoutResult {
+export function useDiagramLayout(
+  schema: SchemaIR | null,
+  rankdir: "LR" | "TB" = "LR"
+): LayoutResult {
   return useMemo(() => {
     if (!schema || schema.tables.length === 0) return EMPTY_LAYOUT;
-    return computeLayout(schema);
-  }, [schema]);
+    return computeLayout(schema, { rankdir });
+  }, [schema, rankdir]);
 }

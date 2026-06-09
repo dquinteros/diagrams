@@ -7,8 +7,8 @@ import {
   ROW_HEIGHT,
   TABLE_PADDING,
   TABLE_BORDER_RADIUS,
-  COLORS,
 } from "../../lib/constants";
+import { useTheme } from "../../context/ThemeContext";
 
 interface TableNodeProps {
   table: TableIR;
@@ -25,6 +25,7 @@ export function TableNode({
   isSelected,
   onSelect,
 }: TableNodeProps) {
+  const { theme } = useTheme();
   const height =
     HEADER_HEIGHT + table.columns.length * ROW_HEIGHT + TABLE_PADDING * 2;
 
@@ -49,8 +50,8 @@ export function TableNode({
         height={height}
         rx={TABLE_BORDER_RADIUS}
         ry={TABLE_BORDER_RADIUS}
-        fill={COLORS.tableBg}
-        stroke={isSelected ? COLORS.tableBorderSelected : COLORS.tableBorder}
+        fill={theme.tableBg}
+        stroke={isSelected ? theme.tableBorderSelected : theme.tableBorder}
         strokeWidth={isSelected ? 2 : 1}
       />
       <rect
@@ -58,21 +59,21 @@ export function TableNode({
         height={HEADER_HEIGHT}
         rx={TABLE_BORDER_RADIUS}
         ry={TABLE_BORDER_RADIUS}
-        fill={COLORS.tableHeader}
+        fill={theme.tableHeader}
       />
       <rect
         x={0}
         y={HEADER_HEIGHT - TABLE_BORDER_RADIUS}
         width={TABLE_WIDTH}
         height={TABLE_BORDER_RADIUS}
-        fill={COLORS.tableHeader}
+        fill={theme.tableHeader}
       />
       <text
         x={TABLE_WIDTH / 2}
         y={HEADER_HEIGHT / 2}
         dominantBaseline="central"
         textAnchor="middle"
-        fill={COLORS.headerText}
+        fill={theme.headerText}
         fontSize={13}
         fontWeight="bold"
         fontFamily="monospace"

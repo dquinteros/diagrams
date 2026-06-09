@@ -27,10 +27,17 @@ function findColumnIndex(
   return idx >= 0 ? idx : 0;
 }
 
-export function computeLayout(schema: SchemaIR): LayoutResult {
+export interface LayoutOptions {
+  rankdir: "LR" | "TB";
+}
+
+export function computeLayout(
+  schema: SchemaIR,
+  options: LayoutOptions = { rankdir: "LR" }
+): LayoutResult {
   const g = new dagre.graphlib.Graph();
   g.setGraph({
-    rankdir: "LR",
+    rankdir: options.rankdir,
     nodesep: NODE_SEP,
     ranksep: RANK_SEP,
     marginx: MARGIN_X,

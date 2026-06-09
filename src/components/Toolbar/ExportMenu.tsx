@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTheme } from "../../context/ThemeContext";
 
 interface ExportMenuProps {
   onExportSql: (dialect: string) => void;
@@ -13,6 +14,7 @@ const DIALECTS = [
 ];
 
 export function ExportMenu({ onExportSql, onExportSvg }: ExportMenuProps) {
+  const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -32,45 +34,80 @@ export function ExportMenu({ onExportSql, onExportSvg }: ExportMenuProps) {
     <div ref={menuRef} style={{ position: "relative" }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        style={buttonStyle}
+        style={{
+          background: theme.controlBg,
+          border: `1px solid ${theme.controlBorder}`,
+          color: theme.controlText,
+          padding: "4px 12px",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontSize: 12,
+          fontFamily: "monospace",
+        }}
       >
         Export
       </button>
       {isOpen && (
-        <div style={menuStyle}>
-          <div style={menuHeaderStyle}>Export SQL</div>
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            right: 0,
+            marginTop: 4,
+            backgroundColor: theme.tableBg,
+            border: `1px solid ${theme.controlBorder}`,
+            borderRadius: 6,
+            padding: "4px 0",
+            minWidth: 160,
+            zIndex: 100,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+          }}
+        >
+          <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
+            Export SQL
+          </div>
           {DIALECTS.map((d) => (
             <button
               key={d.id}
-              onClick={() => {
-                onExportSql(d.id);
-                setIsOpen(false);
+              onClick={() => { onExportSql(d.id); setIsOpen(false); }}
+              style={{
+                display: "block",
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                color: theme.controlText,
+                padding: "6px 12px",
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "monospace",
+                textAlign: "left",
               }}
-              style={menuItemStyle}
-              onMouseEnter={(e) =>
-                ((e.target as HTMLElement).style.backgroundColor = "#45475a")
-              }
-              onMouseLeave={(e) =>
-                ((e.target as HTMLElement).style.backgroundColor = "transparent")
-              }
+              onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
+              onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = "transparent")}
             >
               {d.label}
             </button>
           ))}
-          <div style={{ borderTop: "1px solid #45475a", margin: "4px 0" }} />
-          <div style={menuHeaderStyle}>Export Image</div>
+          <div style={{ borderTop: `1px solid ${theme.controlBorder}`, margin: "4px 0" }} />
+          <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
+            Export Image
+          </div>
           <button
-            onClick={() => {
-              onExportSvg();
-              setIsOpen(false);
+            onClick={() => { onExportSvg(); setIsOpen(false); }}
+            style={{
+              display: "block",
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              color: theme.controlText,
+              padding: "6px 12px",
+              cursor: "pointer",
+              fontSize: 12,
+              fontFamily: "monospace",
+              textAlign: "left",
             }}
-            style={menuItemStyle}
-            onMouseEnter={(e) =>
-              ((e.target as HTMLElement).style.backgroundColor = "#45475a")
-            }
-            onMouseLeave={(e) =>
-              ((e.target as HTMLElement).style.backgroundColor = "transparent")
-            }
+            onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
+            onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = "transparent")}
           >
             SVG
           </button>
@@ -79,50 +116,3 @@ export function ExportMenu({ onExportSql, onExportSvg }: ExportMenuProps) {
     </div>
   );
 }
-
-const buttonStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "1px solid #45475a",
-  color: "#cdd6f4",
-  padding: "4px 12px",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontSize: 12,
-  fontFamily: "monospace",
-};
-
-const menuStyle: React.CSSProperties = {
-  position: "absolute",
-  top: "100%",
-  left: 0,
-  marginTop: 4,
-  backgroundColor: "#1e1e2e",
-  border: "1px solid #45475a",
-  borderRadius: 6,
-  padding: "4px 0",
-  minWidth: 160,
-  zIndex: 100,
-  boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-};
-
-const menuHeaderStyle: React.CSSProperties = {
-  padding: "4px 12px",
-  fontSize: 10,
-  color: "#6c7086",
-  textTransform: "uppercase",
-  letterSpacing: 1,
-  fontFamily: "monospace",
-};
-
-const menuItemStyle: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  background: "transparent",
-  border: "none",
-  color: "#cdd6f4",
-  padding: "6px 12px",
-  cursor: "pointer",
-  fontSize: 12,
-  fontFamily: "monospace",
-  textAlign: "left",
-};

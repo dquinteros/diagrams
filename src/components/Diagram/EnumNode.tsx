@@ -6,8 +6,8 @@ import {
   ROW_HEIGHT,
   TABLE_PADDING,
   TABLE_BORDER_RADIUS,
-  COLORS,
 } from "../../lib/constants";
+import { useTheme } from "../../context/ThemeContext";
 
 interface EnumNodeProps {
   enumBlock: EnumIR;
@@ -15,6 +15,7 @@ interface EnumNodeProps {
 }
 
 export function EnumNode({ enumBlock, layout }: EnumNodeProps) {
+  const { theme } = useTheme();
   const height =
     HEADER_HEIGHT + enumBlock.values.length * ROW_HEIGHT + TABLE_PADDING * 2;
 
@@ -25,8 +26,8 @@ export function EnumNode({ enumBlock, layout }: EnumNodeProps) {
         height={height}
         rx={TABLE_BORDER_RADIUS}
         ry={TABLE_BORDER_RADIUS}
-        fill={COLORS.enumBg}
-        stroke={COLORS.enumHeader}
+        fill={theme.enumBg}
+        stroke={theme.enumHeader}
         strokeWidth={1}
         strokeDasharray="4 2"
       />
@@ -35,20 +36,20 @@ export function EnumNode({ enumBlock, layout }: EnumNodeProps) {
         height={HEADER_HEIGHT}
         rx={TABLE_BORDER_RADIUS}
         ry={TABLE_BORDER_RADIUS}
-        fill={COLORS.enumHeader}
+        fill={theme.enumHeader}
       />
       <rect
         x={0}
         y={HEADER_HEIGHT - TABLE_BORDER_RADIUS}
         width={TABLE_WIDTH}
         height={TABLE_BORDER_RADIUS}
-        fill={COLORS.enumHeader}
+        fill={theme.enumHeader}
       />
       <text
         x={12}
         y={HEADER_HEIGHT / 2}
         dominantBaseline="central"
-        fill="#a6e3a1"
+        fill={theme.enumLabel}
         fontSize={10}
         fontFamily="monospace"
       >
@@ -59,7 +60,7 @@ export function EnumNode({ enumBlock, layout }: EnumNodeProps) {
         y={HEADER_HEIGHT / 2}
         dominantBaseline="central"
         textAnchor="middle"
-        fill={COLORS.headerText}
+        fill={theme.headerText}
         fontSize={13}
         fontWeight="bold"
         fontFamily="monospace"
@@ -75,7 +76,7 @@ export function EnumNode({ enumBlock, layout }: EnumNodeProps) {
             x={12}
             y={rowY}
             dominantBaseline="central"
-            fill={COLORS.columnText}
+            fill={theme.columnText}
             fontSize={12}
             fontFamily="monospace"
           >
