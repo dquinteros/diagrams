@@ -66,9 +66,6 @@ export function useNodePositions(
     return recomputeEdges(schema, nodes);
   }, [schema, nodes, baseLayout.edges, overrides.size]);
 
-  const overridesRef = useRef(overrides);
-  overridesRef.current = overrides;
-
   const moveNode = useCallback((id: string, x: number, y: number) => {
     setOverrides((prev) => {
       const next = new Map(prev);
@@ -88,7 +85,11 @@ export function useNodePositions(
 
   const endDrag = useCallback(() => {
     setDragTarget(null);
-    persist(overridesRef.current);
+    // Read the latest overrides via the state updater, then persist them.
+    setOverrides((cur) => {
+      persist(cur);
+      return cur;
+    });
   }, [persist]);
 
   return {

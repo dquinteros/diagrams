@@ -1,6 +1,7 @@
 import type { ParseError } from "../../types/schema";
 import { ExportMenu } from "./ExportMenu";
 import { ImportMenu } from "./ImportMenu";
+import { RecentMenu } from "./RecentMenu";
 import { useTheme } from "../../context/ThemeContext";
 
 interface ToolbarProps {
@@ -10,7 +11,9 @@ interface ToolbarProps {
   refCount: number;
   filePath: string | null;
   isDirty: boolean;
+  recentFiles: string[];
   onOpen: () => void;
+  onOpenRecent: (path: string) => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExportSql: (dialect: string) => void;
@@ -28,7 +31,9 @@ export function Toolbar({
   refCount,
   filePath,
   isDirty,
+  recentFiles,
   onOpen,
+  onOpenRecent,
   onSave,
   onSaveAs,
   onExportSql,
@@ -109,6 +114,7 @@ export function Toolbar({
           {themeId === "dark" ? "Light" : "Dark"}
         </button>
         <button onClick={onOpen} style={btnStyle} title="Open (Cmd+O)">Open</button>
+        <RecentMenu files={recentFiles} onOpenRecent={onOpenRecent} />
         <button onClick={onSave} style={btnStyle} title="Save (Cmd+S)">Save</button>
         <button onClick={onSaveAs} style={btnStyle} title="Save As (Cmd+Shift+S)">Save As</button>
         <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />

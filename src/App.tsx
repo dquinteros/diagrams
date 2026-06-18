@@ -4,11 +4,21 @@ import { DbmlEditor, type DbmlEditorHandle } from "./components/Editor/DbmlEdito
 import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { DiagramCanvas } from "./components/Diagram/DiagramCanvas";
 import { Toolbar } from "./components/Toolbar/Toolbar";
+import { TabBar } from "./components/Toolbar/TabBar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
 import { exportSvg, exportPng, exportPdf } from "./lib/exportImage";
+import {
+  loadRankdir,
+  saveRankdir,
+  loadDetailLevel,
+  saveDetailLevel,
+  loadRecentFiles,
+  addRecentFile,
+} from "./lib/prefs";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
+import { useDocuments } from "./hooks/useDocuments";
 import { useTheme } from "./context/ThemeContext";
 import type { DetailLevel } from "./types/layout";
 
@@ -75,12 +85,15 @@ Note schema_info {
 
 function App() {
   const { theme } = useTheme();
-  const [content, setContent] = useState(DEFAULT_CONTENT);
-  const [editorKey, setEditorKey] = useState(0);
-  const [rankdir, setRankdir] = useState<"LR" | "TB">("LR");
-  const [detailLevel, setDetailLevel] = useState<DetailLevel>("full");
+  const docs = useDocuments(DEFAULT_CONTENT);
+  const { activeDoc, activeId } = docs;
+  const content = activeDoc.content;
+
+  const [rankdir, setRankdir] = useState<"LR" | "TB">(loadRankdir);
+  const [detailLevel, setDetailLevel] = useState<DetailLevel>(loadDetailLevel);
   const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [recentFiles, setRecentFiles] = useState<string[]>(loadRecentFiles);
   const editorRef = useRef<DbmlEditorHandle>(null);
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { schema, parseError, isLoading } = useDbmlParser(content);
@@ -88,41 +101,66 @@ function App() {
   schemaRef.current = schema;
   const layout = useDiagramLayout(schema, rankdir);
   const fileOps = useFileOperations();
-  const contentRef = useRef(content);
-  contentRef.current = content;
 
   const [dividerPos, setDividerPos] = useState(40);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
 
+  const rememberRecent = useCallback((path: string) => {
+    setRecentFiles(addRecentFile(path));
+  }, []);
+
   const handleContentChange = useCallback(
     (value: string) => {
-      setContent(value);
-      fileOps.setDirty(true);
+      docs.updateContent(activeId, value);
     },
-    [fileOps]
+    [docs, activeId]
   );
 
   const handleOpen = useCallback(async () => {
     const result = await fileOps.openFile();
     if (result) {
-      setContent(result.content);
-      setEditorKey((k) => k + 1);
+      docs.openDoc(result.path, result.content);
+      rememberRecent(result.path);
     }
-  }, [fileOps]);
+  }, [fileOps, docs, rememberRecent]);
 
-  const handleSave = useCallback(() => {
-    fileOps.saveFile(contentRef.current);
-  }, [fileOps]);
+  const handleOpenRecent = useCallback(
+    async (path: string) => {
+      try {
+        const content = await fileOps.readFile(path);
+        if (content != null) {
+          docs.openDoc(path, content);
+          rememberRecent(path);
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        alert(`Open failed: ${msg}`);
+      }
+    },
+    [fileOps, docs, rememberRecent]
+  );
 
-  const handleSaveAs = useCallback(() => {
-    fileOps.saveFileAs(contentRef.current);
-  }, [fileOps]);
+  const handleSave = useCallback(async () => {
+    const saved = await fileOps.saveFile(activeDoc.content, activeDoc.filePath);
+    if (saved) {
+      docs.markSaved(activeId, saved);
+      rememberRecent(saved);
+    }
+  }, [fileOps, docs, activeId, activeDoc.content, activeDoc.filePath, rememberRecent]);
+
+  const handleSaveAs = useCallback(async () => {
+    const saved = await fileOps.saveFile(activeDoc.content, null);
+    if (saved) {
+      docs.markSaved(activeId, saved);
+      rememberRecent(saved);
+    }
+  }, [fileOps, docs, activeId, activeDoc.content, rememberRecent]);
 
   const handleExportSql = useCallback(
     async (dialect: string) => {
       try {
         const sql = await invoke<string>("generate_sql", {
-          input: contentRef.current,
+          input: activeDoc.content,
           dialect,
         });
         await fileOps.exportSql(sql, dialect);
@@ -131,7 +169,7 @@ function App() {
         alert(`Export failed: ${msg}`);
       }
     },
-    [fileOps]
+    [fileOps, activeDoc.content]
   );
 
   const handleExportSvg = useCallback(() => {
@@ -163,11 +201,9 @@ function App() {
 
   const applyImportedDbml = useCallback(
     (dbml: string) => {
-      setContent(dbml);
-      setEditorKey((k) => k + 1);
-      fileOps.setDirty(true);
+      docs.replaceContent(activeId, dbml);
     },
-    [fileOps]
+    [docs, activeId]
   );
 
   const handleImportFile = useCallback(
@@ -200,7 +236,11 @@ function App() {
   );
 
   const toggleRankdir = useCallback(() => {
-    setRankdir((prev) => (prev === "LR" ? "TB" : "LR"));
+    setRankdir((prev) => {
+      const next = prev === "LR" ? "TB" : "LR";
+      saveRankdir(next);
+      return next;
+    });
   }, []);
 
   const handleCursorChange = useCallback(
@@ -226,7 +266,9 @@ function App() {
     setDetailLevel((prev) => {
       const levels: DetailLevel[] = ["full", "keys-only", "name-only"];
       const idx = levels.indexOf(prev);
-      return levels[(idx + 1) % levels.length];
+      const next = levels[(idx + 1) % levels.length];
+      saveDetailLevel(next);
+      return next;
     });
   }, []);
 
@@ -242,12 +284,18 @@ function App() {
         } else if (e.key === "s") {
           e.preventDefault();
           handleSave();
+        } else if (e.key === "t") {
+          e.preventDefault();
+          docs.newDoc(DEFAULT_CONTENT);
+        } else if (e.key === "w") {
+          e.preventDefault();
+          docs.closeDoc(activeId);
         }
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleOpen, handleSave, handleSaveAs]);
+  }, [handleOpen, handleSave, handleSaveAs, docs, activeId]);
 
   const handleDividerMouseDown = useCallback(() => {
     setIsDraggingDivider(true);
@@ -284,9 +332,11 @@ function App() {
         isLoading={isLoading}
         tableCount={schema?.tables.length ?? 0}
         refCount={schema?.refs.length ?? 0}
-        filePath={fileOps.filePath}
-        isDirty={fileOps.isDirty}
+        filePath={activeDoc.filePath}
+        isDirty={activeDoc.isDirty}
+        recentFiles={recentFiles}
         onOpen={handleOpen}
+        onOpenRecent={handleOpenRecent}
         onSave={handleSave}
         onSaveAs={handleSaveAs}
         onExportSql={handleExportSql}
@@ -295,6 +345,13 @@ function App() {
         onExportPdf={handleExportPdf}
         onImportFile={handleImportFile}
         onPasteSql={() => setShowImportModal(true)}
+      />
+      <TabBar
+        docs={docs.docs}
+        activeId={activeId}
+        onSelect={docs.setActive}
+        onClose={docs.closeDoc}
+        onNew={() => docs.newDoc(DEFAULT_CONTENT)}
       />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div
@@ -307,7 +364,7 @@ function App() {
         >
           <DbmlEditor
             ref={editorRef}
-            key={editorKey}
+            key={`${activeId}-${activeDoc.editorKey}`}
             initialValue={content}
             onChange={handleContentChange}
             onCursorChange={handleCursorChange}
@@ -344,7 +401,7 @@ function App() {
               onToggleDetailLevel={toggleDetailLevel}
               highlightedTable={highlightedTable}
               onNavigateToSource={handleNavigateToSource}
-              storageKey={fileOps.filePath ?? "untitled"}
+              storageKey={activeDoc.filePath ?? `untitled-${activeId}`}
             />
           )}
         </div>

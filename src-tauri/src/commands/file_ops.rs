@@ -34,6 +34,11 @@ pub async fn open_file(app: tauri::AppHandle) -> Result<Option<FileResult>, Stri
 }
 
 #[tauri::command]
+pub async fn read_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))
+}
+
+#[tauri::command]
 pub async fn open_sql_file(app: tauri::AppHandle) -> Result<Option<FileResult>, String> {
     let file = app
         .dialog()

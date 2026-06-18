@@ -16,6 +16,7 @@ pub fn run() {
             commands::sql_export::generate_sql,
             commands::sql_import::import_sql,
             commands::file_ops::open_file,
+            commands::file_ops::read_file,
             commands::file_ops::open_sql_file,
             commands::file_ops::save_file,
             commands::file_ops::export_sql_file,

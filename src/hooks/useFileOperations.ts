@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface FileResult {
@@ -7,77 +7,40 @@ interface FileResult {
 }
 
 interface UseFileOperationsResult {
-  filePath: string | null;
-  isDirty: boolean;
-  setDirty: (dirty: boolean) => void;
   openFile: () => Promise<{ content: string; path: string } | null>;
+  readFile: (path: string) => Promise<string | null>;
   openSqlFile: () => Promise<string | null>;
-  saveFile: (content: string) => Promise<void>;
-  saveFileAs: (content: string) => Promise<void>;
+  saveFile: (content: string, path: string | null) => Promise<string | null>;
   exportSql: (sql: string, dialect: string) => Promise<void>;
   importSql: (sql: string, dialect: string) => Promise<string>;
 }
 
 export function useFileOperations(): UseFileOperationsResult {
-  const [filePath, setFilePath] = useState<string | null>(null);
-  const [isDirty, setDirty] = useState(false);
-
   const openFile = useCallback(async () => {
     try {
       const result = await invoke<FileResult | null>("open_file");
-      if (result) {
-        setFilePath(result.path);
-        setDirty(false);
-        return { content: result.content, path: result.path };
-      }
+      return result ? { content: result.content, path: result.path } : null;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to open file: ${msg}`);
-    }
-    return null;
-  }, []);
-
-  const saveFile = useCallback(
-    async (content: string) => {
-      try {
-        const result = await invoke<string | null>("save_file", {
-          content,
-          path: filePath,
-        });
-        if (result) {
-          setFilePath(result);
-          setDirty(false);
-        }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        throw new Error(`Failed to save: ${msg}`);
-      }
-    },
-    [filePath]
-  );
-
-  const saveFileAs = useCallback(async (content: string) => {
-    try {
-      const result = await invoke<string | null>("save_file", {
-        content,
-        path: null,
-      });
-      if (result) {
-        setFilePath(result);
-        setDirty(false);
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to save: ${msg}`);
+      throw new Error(`Failed to open file: ${msg}`, { cause: e });
     }
   }, []);
 
-  const exportSql = useCallback(async (sql: string, dialect: string) => {
+  const readFile = useCallback(async (path: string) => {
     try {
-      await invoke<string | null>("export_sql_file", { sql, dialect });
+      return await invoke<string>("read_file", { path });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to export SQL: ${msg}`);
+      throw new Error(`Failed to read file: ${msg}`, { cause: e });
+    }
+  }, []);
+
+  const saveFile = useCallback(async (content: string, path: string | null) => {
+    try {
+      return await invoke<string | null>("save_file", { content, path });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`Failed to save: ${msg}`, { cause: e });
     }
   }, []);
 
@@ -87,7 +50,16 @@ export function useFileOperations(): UseFileOperationsResult {
       return result ? result.content : null;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to open SQL file: ${msg}`);
+      throw new Error(`Failed to open SQL file: ${msg}`, { cause: e });
+    }
+  }, []);
+
+  const exportSql = useCallback(async (sql: string, dialect: string) => {
+    try {
+      await invoke<string | null>("export_sql_file", { sql, dialect });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`Failed to export SQL: ${msg}`, { cause: e });
     }
   }, []);
 
@@ -96,19 +68,9 @@ export function useFileOperations(): UseFileOperationsResult {
       return await invoke<string>("import_sql", { input: sql, dialect });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to import SQL: ${msg}`);
+      throw new Error(`Failed to import SQL: ${msg}`, { cause: e });
     }
   }, []);
 
-  return {
-    filePath,
-    isDirty,
-    setDirty,
-    openFile,
-    openSqlFile,
-    saveFile,
-    saveFileAs,
-    exportSql,
-    importSql,
-  };
+  return { openFile, readFile, openSqlFile, saveFile, exportSql, importSql };
 }
