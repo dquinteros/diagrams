@@ -15,7 +15,12 @@ export function useDiagramLayout(
   rankdir: "LR" | "TB" = "LR"
 ): LayoutResult {
   return useMemo(() => {
-    if (!schema || schema.tables.length === 0) return EMPTY_LAYOUT;
+    if (!schema) return EMPTY_LAYOUT;
+    const isEmpty =
+      schema.tables.length === 0 &&
+      schema.enums.length === 0 &&
+      schema.notes.length === 0;
+    if (isEmpty) return EMPTY_LAYOUT;
     return computeLayout(schema, { rankdir });
   }, [schema, rankdir]);
 }

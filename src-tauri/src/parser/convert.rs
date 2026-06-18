@@ -8,7 +8,16 @@ pub struct SchemaIR {
     pub refs: Vec<RefIR>,
     pub enums: Vec<EnumIR>,
     pub table_groups: Vec<TableGroupIR>,
+    pub notes: Vec<NoteIR>,
     pub project: Option<ProjectIR>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteIR {
+    pub name: Option<String>,
+    pub content: String,
+    pub span_range: (usize, usize),
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -111,6 +120,7 @@ pub fn convert_schema(schema: &ast::SchemaBlock<'_>) -> SchemaIR {
 
     let enums = schema.enums().into_iter().map(convert_enum).collect();
     let table_groups = schema.table_groups().into_iter().map(convert_table_group).collect();
+    let notes = schema.notes().into_iter().map(convert_note).collect();
     let project = schema.projects().first().map(|p| convert_project(p));
 
     SchemaIR {
@@ -118,8 +128,34 @@ pub fn convert_schema(schema: &ast::SchemaBlock<'_>) -> SchemaIR {
         refs,
         enums,
         table_groups,
+        notes,
         project,
     }
+}
+
+fn convert_note(note: &ast::NoteBlock) -> NoteIR {
+    NoteIR {
+        name: None,
+        content: unquote(&note.value.raw),
+        span_range: (note.span_range.start, note.span_range.end),
+    }
+}
+
+/// Strip surrounding quotes (`'`, `"`, or `'''`) from a DBML string literal.
+pub fn unquote(raw: &str) -> String {
+    let s = raw.trim();
+    if let Some(inner) = s.strip_prefix("'''").and_then(|s| s.strip_suffix("'''")) {
+        return inner.trim().to_string();
+    }
+    if s.len() >= 2 {
+        let bytes = s.as_bytes();
+        let first = bytes[0];
+        let last = bytes[s.len() - 1];
+        if (first == b'\'' || first == b'"') && first == last {
+            return s[1..s.len() - 1].to_string();
+        }
+    }
+    s.to_string()
 }
 
 fn convert_table(table: &ast::TableBlock) -> TableIR {

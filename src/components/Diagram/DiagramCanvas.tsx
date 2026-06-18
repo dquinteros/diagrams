@@ -7,10 +7,12 @@ import { useTheme } from "../../context/ThemeContext";
 import { TableNode } from "./TableNode";
 import { RelationshipEdge } from "./RelationshipEdge";
 import { EnumNode } from "./EnumNode";
+import { StickyNoteNode } from "./StickyNoteNode";
 import { ZoomControls } from "./ZoomControls";
 import { Tooltip } from "./Tooltip";
 import { TableGroupRect } from "./TableGroupRect";
 import { SearchBar } from "./SearchBar";
+import { MiniMap } from "./MiniMap";
 
 interface HoverInfo {
   tableName: string;
@@ -176,6 +178,19 @@ export function DiagramCanvas({
               />
             );
           })}
+          {schema.notes.map((note, i) => {
+            const nodeLayout = np.nodes.get(`note_${i}`);
+            if (!nodeLayout) return null;
+            return (
+              <StickyNoteNode
+                key={`note_${i}`}
+                note={note}
+                layout={nodeLayout}
+                onDragStart={handleTableDragStart}
+                onNavigateToSource={onNavigateToSource}
+              />
+            );
+          })}
         </g>
       </svg>
       <ZoomControls
@@ -194,6 +209,14 @@ export function DiagramCanvas({
         nodes={np.nodes}
         onNavigateToTable={vt.panToNode}
         onHighlight={setSelectedTable}
+      />
+      <MiniMap
+        nodes={np.nodes}
+        diagramWidth={layout.width}
+        diagramHeight={layout.height}
+        transform={vt.transform}
+        setTransform={vt.setTransform}
+        svgRef={vt.svgRef}
       />
       {tooltipContent && hoverInfo && (
         <Tooltip x={hoverInfo.x} y={hoverInfo.y} content={tooltipContent} />

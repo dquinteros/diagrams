@@ -3,7 +3,14 @@ export interface SchemaIR {
   refs: RefIR[];
   enums: EnumIR[];
   tableGroups: TableGroupIR[];
+  notes: NoteIR[];
   project: ProjectIR | null;
+}
+
+export interface NoteIR {
+  name: string | null;
+  content: string;
+  spanRange: [number, number];
 }
 
 export interface TableIR {

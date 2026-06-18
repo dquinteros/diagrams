@@ -10,10 +10,22 @@ import {
   RANK_SEP,
   MARGIN_X,
   MARGIN_Y,
+  NOTE_WIDTH,
+  NOTE_LINE_HEIGHT,
+  NOTE_PADDING,
 } from "./constants";
 
 function tableHeight(columnCount: number): number {
   return HEADER_HEIGHT + columnCount * ROW_HEIGHT + TABLE_PADDING * 2;
+}
+
+function enumHeight(valueCount: number): number {
+  return HEADER_HEIGHT + valueCount * ROW_HEIGHT + TABLE_PADDING * 2;
+}
+
+export function noteHeight(content: string): number {
+  const lines = Math.max(1, content.split("\n").length);
+  return HEADER_HEIGHT + lines * NOTE_LINE_HEIGHT + NOTE_PADDING * 2;
 }
 
 function findColumnIndex(
@@ -121,11 +133,47 @@ export function computeLayout(
   }
 
   const graphInfo = g.graph();
+  const baseWidth = graphInfo?.width ?? 800;
+  const baseHeight = graphInfo?.height ?? 600;
+
+  // Enums and sticky notes are not part of the dagre graph; stack them in a
+  // side column to the right of the tables.
+  const sideX = baseWidth + RANK_SEP;
+  let sideY = MARGIN_Y;
+
+  for (const enumBlock of schema.enums) {
+    const h = enumHeight(enumBlock.values.length);
+    nodes.set(`enum_${enumBlock.name}`, {
+      id: `enum_${enumBlock.name}`,
+      x: sideX,
+      y: sideY,
+      width: TABLE_WIDTH,
+      height: h,
+    });
+    sideY += h + NODE_SEP;
+  }
+
+  for (let i = 0; i < schema.notes.length; i++) {
+    const h = noteHeight(schema.notes[i].content);
+    nodes.set(`note_${i}`, {
+      id: `note_${i}`,
+      x: sideX,
+      y: sideY,
+      width: NOTE_WIDTH,
+      height: h,
+    });
+    sideY += h + NODE_SEP;
+  }
+
+  const hasSideColumn = schema.enums.length > 0 || schema.notes.length > 0;
+  const contentWidth = hasSideColumn ? sideX + Math.max(TABLE_WIDTH, NOTE_WIDTH) : baseWidth;
+  const contentHeight = Math.max(baseHeight, sideY);
+
   return {
     nodes,
     edges,
-    width: (graphInfo?.width ?? 800) + MARGIN_X * 2,
-    height: (graphInfo?.height ?? 600) + MARGIN_Y * 2,
+    width: contentWidth + MARGIN_X * 2,
+    height: contentHeight + MARGIN_Y * 2,
   };
 }
 

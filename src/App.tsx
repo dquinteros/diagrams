@@ -67,6 +67,10 @@ Enum post_status {
   published
   archived
 }
+
+Note schema_info {
+  'Blog demo schema. Drag tables to rearrange; the layout is saved per file.'
+}
 `;
 
 function App() {
