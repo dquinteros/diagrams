@@ -44,6 +44,7 @@ pub struct ColumnIR {
     pub is_incremental: bool,
     pub default_value: Option<String>,
     pub note: Option<String>,
+    pub check: Option<String>,
     pub span_range: (usize, usize),
 }
 
@@ -141,7 +142,7 @@ fn convert_note(note: &ast::NoteBlock) -> NoteIR {
     }
 }
 
-/// Strip surrounding quotes (`'`, `"`, or `'''`) from a DBML string literal.
+/// Strip surrounding quotes (`'`, `"`, `'''`, or backticks) from a DBML literal.
 pub fn unquote(raw: &str) -> String {
     let s = raw.trim();
     if let Some(inner) = s.strip_prefix("'''").and_then(|s| s.strip_suffix("'''")) {
@@ -151,7 +152,7 @@ pub fn unquote(raw: &str) -> String {
         let bytes = s.as_bytes();
         let first = bytes[0];
         let last = bytes[s.len() - 1];
-        if (first == b'\'' || first == b'"') && first == last {
+        if (first == b'\'' || first == b'"' || first == b'`') && first == last {
             return s[1..s.len() - 1].to_string();
         }
     }
@@ -197,6 +198,15 @@ fn convert_column(col: &ast::TableColumn) -> ColumnIR {
         .and_then(|s| s.default.as_ref())
         .map(|v| value_to_string(v));
 
+    // `check` is not a first-class column setting in dbml-rs; it lands in the
+    // generic attribute bag (like `headercolor` does on tables).
+    let check = settings.and_then(|s| {
+        s.attributes
+            .iter()
+            .find(|a| a.key.to_string == "check")
+            .and_then(|a| a.value.as_ref().map(|v| unquote(&v.raw)))
+    });
+
     ColumnIR {
         name: col.name.to_string.clone(),
         r#type: col.r#type.raw.clone(),
@@ -206,6 +216,7 @@ fn convert_column(col: &ast::TableColumn) -> ColumnIR {
         is_incremental: settings.map(|s| s.is_incremental).unwrap_or(false),
         default_value,
         note: settings.and_then(|s| s.note.clone()),
+        check,
         span_range: (col.span_range.start, col.span_range.end),
     }
 }
@@ -384,6 +395,21 @@ Table users {
         assert_eq!(email_col.name, "email");
         assert!(email_col.is_unique);
         assert!(!email_col.is_nullable);
+    }
+
+    #[test]
+    fn test_convert_column_check() {
+        let input = r#"
+Table t {
+  age integer [check: 'age >= 18']
+  score integer [check: `score > 0`]
+}
+"#;
+        let ast = dbml_rs::parse_dbml(input).expect("parse failed");
+        let ir = convert_schema(&ast);
+        let cols = &ir.tables[0].columns;
+        assert_eq!(cols[0].check.as_deref(), Some("age >= 18"));
+        assert_eq!(cols[1].check.as_deref(), Some("score > 0"));
     }
 
     #[test]

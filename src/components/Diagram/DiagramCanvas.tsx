@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import type { SchemaIR } from "../../types/schema";
 import type { LayoutResult, DetailLevel } from "../../types/layout";
 import { useViewTransform } from "../../hooks/useViewTransform";
@@ -128,6 +128,19 @@ export function DiagramCanvas({
 
   const tooltipContent = getTooltipContent(schema, hoverInfo);
 
+  // Hovering a table highlights it and its direct relationships, dimming the
+  // rest. Disabled while dragging to avoid flicker.
+  const hoveredTable = np.isDragging ? null : hoverInfo?.tableName ?? null;
+  const relatedTables = useMemo(() => {
+    if (!hoveredTable) return null;
+    const related = new Set<string>([hoveredTable]);
+    for (const ref of schema.refs) {
+      if (ref.fromTable === hoveredTable) related.add(ref.toTable);
+      if (ref.toTable === hoveredTable) related.add(ref.fromTable);
+    }
+    return related;
+  }, [hoveredTable, schema.refs]);
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <svg
@@ -146,9 +159,18 @@ export function DiagramCanvas({
           {schema.tableGroups.map((group) => (
             <TableGroupRect key={group.name} group={group} nodes={np.nodes} />
           ))}
-          {np.edges.map((edge, i) => (
-            <RelationshipEdge key={`${edge.from}-${edge.to}-${i}`} edge={edge} />
-          ))}
+          {np.edges.map((edge, i) => {
+            const connected =
+              edge.from === hoveredTable || edge.to === hoveredTable;
+            return (
+              <RelationshipEdge
+                key={`${edge.from}-${edge.to}-${i}`}
+                edge={edge}
+                isDimmed={hoveredTable != null && !connected}
+                isHighlighted={connected}
+              />
+            );
+          })}
           {schema.tables.map((table) => {
             const nodeLayout = np.nodes.get(table.name);
             if (!nodeLayout) return null;
@@ -159,6 +181,7 @@ export function DiagramCanvas({
                 layout={nodeLayout}
                 schema={schema}
                 isSelected={activeTable === table.name}
+                isDimmed={relatedTables != null && !relatedTables.has(table.name)}
                 onDragStart={handleTableDragStart}
                 onNavigateToSource={onNavigateToSource}
                 onHover={setHoverInfo}
@@ -233,11 +256,14 @@ function getTooltipContent(schema: SchemaIR, hover: HoverInfo | null): string | 
   if (hover.columnName) {
     const col = table.columns.find((c) => c.name === hover.columnName);
     if (!col) return null;
+    const parts: string[] = [];
     const enumDef = schema.enums.find((e) => e.name === col.type);
     if (enumDef) {
-      return `enum ${enumDef.name}:\n${enumDef.values.map((v) => `  ${v.name}`).join("\n")}`;
+      parts.push(`enum ${enumDef.name}:\n${enumDef.values.map((v) => `  ${v.name}`).join("\n")}`);
     }
-    return col.note ?? null;
+    if (col.note) parts.push(col.note);
+    if (col.check) parts.push(`check: ${col.check}`);
+    return parts.length > 0 ? parts.join("\n") : null;
   }
 
   return table.note ?? null;

@@ -15,6 +15,7 @@ interface TableNodeProps {
   layout: LayoutNode;
   schema: SchemaIR;
   isSelected: boolean;
+  isDimmed?: boolean;
   onDragStart: (tableName: string, e: React.MouseEvent) => void;
   onNavigateToSource?: (spanRange: [number, number]) => void;
   onHover?: (info: { tableName: string; columnName?: string; x: number; y: number } | null) => void;
@@ -26,6 +27,7 @@ export function TableNode({
   layout,
   schema,
   isSelected,
+  isDimmed,
   onDragStart,
   onNavigateToSource,
   onHover,
@@ -60,7 +62,7 @@ export function TableNode({
       onDoubleClick={() => onNavigateToSource?.(table.spanRange)}
       onMouseEnter={(e) => onHover?.({ tableName: table.name, x: e.clientX, y: e.clientY })}
       onMouseLeave={() => onHover?.(null)}
-      style={{ cursor: "pointer" }}
+      style={{ cursor: "pointer", opacity: isDimmed ? 0.25 : 1, transition: "opacity 0.15s" }}
     >
       <rect
         width={TABLE_WIDTH}

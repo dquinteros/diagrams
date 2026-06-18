@@ -3,6 +3,7 @@ import type { SchemaIR } from "../../types/schema";
 
 const TOP_LEVEL_KEYWORDS: Completion[] = [
   { label: "Table", type: "keyword", detail: "define a table" },
+  { label: "TablePartial", type: "keyword", detail: "reusable column set" },
   { label: "Ref", type: "keyword", detail: "define a relationship" },
   { label: "Enum", type: "keyword", detail: "define an enum" },
   { label: "TableGroup", type: "keyword", detail: "group tables" },
@@ -29,6 +30,7 @@ const SETTINGS_KEYWORDS: Completion[] = [
   { label: "default:", type: "keyword", detail: "default value" },
   { label: "ref:", type: "keyword", detail: "inline reference" },
   { label: "note:", type: "keyword", detail: "column note" },
+  { label: "check:", type: "keyword", detail: "check constraint" },
 ];
 
 export function createDbmlCompletion(

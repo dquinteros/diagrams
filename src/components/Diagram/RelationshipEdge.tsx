@@ -4,6 +4,8 @@ import { useTheme } from "../../context/ThemeContext";
 
 interface RelationshipEdgeProps {
   edge: LayoutEdge;
+  isDimmed?: boolean;
+  isHighlighted?: boolean;
 }
 
 function buildPath(points: { x: number; y: number }[]): string {
@@ -26,9 +28,11 @@ function buildPath(points: { x: number; y: number }[]): string {
   return d;
 }
 
-export function RelationshipEdge({ edge }: RelationshipEdgeProps) {
+export function RelationshipEdge({ edge, isDimmed, isHighlighted }: RelationshipEdgeProps) {
   const { theme } = useTheme();
   const pathD = buildPath(edge.points);
+  const strokeColor = isHighlighted ? theme.edgeLineHover : theme.edgeLine;
+  const strokeWidth = isHighlighted ? 2.5 : 1.5;
   const start = edge.points[0];
   const end = edge.points[edge.points.length - 1];
 
@@ -77,8 +81,11 @@ export function RelationshipEdge({ edge }: RelationshipEdgeProps) {
   }
 
   return (
-    <g className="relationship-edge">
-      <path d={pathD} fill="none" stroke={theme.edgeLine} strokeWidth={1.5} />
+    <g
+      className="relationship-edge"
+      style={{ opacity: isDimmed ? 0.15 : 1, transition: "opacity 0.15s" }}
+    >
+      <path d={pathD} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
       {fromMarker}
       {toMarker}
     </g>

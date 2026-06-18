@@ -19,7 +19,7 @@ Table users {
   id integer [pk, increment]
   username varchar(50) [unique, not null]
   email varchar(255) [unique, not null]
-  role varchar(20) [default: 'user']
+  role varchar(20) [default: 'user', check: \`role in ('user','admin')\`]
   created_at timestamp [default: \`now()\`]
 
   Note: 'Stores user accounts'

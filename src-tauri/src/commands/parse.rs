@@ -10,7 +10,7 @@ pub struct ParseResult {
 
 #[tauri::command]
 pub fn parse_dbml(input: String) -> ParseResult {
-    let (cleaned, sticky_notes) = preprocess::extract_sticky_notes(&input);
+    let (cleaned, sticky_notes) = preprocess::preprocess(&input);
     match dbml_rs::parse_dbml(&cleaned) {
         Ok(ast) => {
             let mut schema = convert::convert_schema(&ast);

@@ -33,6 +33,7 @@ export interface ColumnIR {
   isIncremental: boolean;
   defaultValue: string | null;
   note: string | null;
+  check: string | null;
   spanRange: [number, number];
 }
 

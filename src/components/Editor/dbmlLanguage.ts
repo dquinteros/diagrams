@@ -2,12 +2,14 @@ import { StreamLanguage, StringStream } from "@codemirror/language";
 
 const KEYWORDS = new Set([
   "table",
+  "tablepartial",
   "ref",
   "enum",
   "indexes",
   "project",
   "tablegroup",
   "note",
+  "check",
   "as",
   "null",
   "not",
