@@ -6,6 +6,8 @@ interface RelationshipEdgeProps {
   edge: LayoutEdge;
   isDimmed?: boolean;
   isHighlighted?: boolean;
+  isAnimated?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
 }
 
 // Marker geometry (drawn outside the table edge).
@@ -54,7 +56,13 @@ function buildPath(points: Pt[]): string {
   return d;
 }
 
-export function RelationshipEdge({ edge, isDimmed, isHighlighted }: RelationshipEdgeProps) {
+export function RelationshipEdge({
+  edge,
+  isDimmed,
+  isHighlighted,
+  isAnimated,
+  onSelect,
+}: RelationshipEdgeProps) {
   const { theme } = useTheme();
   const pathD = buildPath(edge.points);
   const strokeColor = isHighlighted ? theme.edgeLineHover : theme.edgeLine;
@@ -118,7 +126,23 @@ export function RelationshipEdge({ edge, isDimmed, isHighlighted }: Relationship
       className="relationship-edge"
       style={{ opacity: isDimmed ? 0.15 : 1, transition: "opacity 0.15s" }}
     >
-      <path d={pathD} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} />
+      {/* Invisible wide hit area so the thin line is easy to click. */}
+      <path
+        d={pathD}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={14}
+        style={{ cursor: onSelect ? "pointer" : "default" }}
+        onMouseDown={(e) => onSelect?.(e)}
+      />
+      <path
+        className={isAnimated ? "edge-animated" : undefined}
+        d={pathD}
+        fill="none"
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
+        pointerEvents="none"
+      />
       {fromMarker}
       {toMarker}
     </g>

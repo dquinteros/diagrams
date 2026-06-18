@@ -50,6 +50,7 @@ export function DiagramCanvas({
   const vt = useViewTransform(layout, storageKey);
   const np = useNodePositions(layout, schema, storageKey, detailLevel);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<number | null>(null);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
   const dragStateRef = useRef<{
@@ -88,6 +89,7 @@ export function DiagramCanvas({
           (e.target as Element).classList.contains("canvas-bg")
         ) {
           setSelectedTable(null);
+          setSelectedEdge(null);
         }
       }
     },
@@ -115,6 +117,7 @@ export function DiagramCanvas({
     if (ds) {
       if (!ds.moved) {
         setSelectedTable(ds.tableName);
+        setSelectedEdge(null);
       }
       dragStateRef.current = null;
       np.endDrag();
@@ -122,24 +125,42 @@ export function DiagramCanvas({
     vt.handleMouseUp();
   }, [vt, np]);
 
+  const handleEdgeSelect = useCallback((index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedEdge(index);
+    setSelectedTable(null);
+  }, []);
+
   const activeTable = selectedTable ?? highlightedTable;
 
   const cursor = np.isDragging ? "move" : vt.isPanning ? "grabbing" : "grab";
 
   const tooltipContent = getTooltipContent(schema, hoverInfo);
 
-  // Hovering a table highlights it and its direct relationships, dimming the
-  // rest. Disabled while dragging to avoid flicker.
+  // The table whose relationships are emphasized: live hover takes priority,
+  // otherwise the persistently selected table. Disabled while dragging.
   const hoveredTable = np.isDragging ? null : hoverInfo?.tableName ?? null;
+  const focusTable = hoveredTable ?? selectedTable;
+
+  // Tables that stay fully visible: the focused table + its direct neighbours,
+  // or the endpoints of a selected relationship.
   const relatedTables = useMemo(() => {
-    if (!hoveredTable) return null;
-    const related = new Set<string>([hoveredTable]);
-    for (const ref of schema.refs) {
-      if (ref.fromTable === hoveredTable) related.add(ref.toTable);
-      if (ref.toTable === hoveredTable) related.add(ref.fromTable);
+    if (focusTable) {
+      const related = new Set<string>([focusTable]);
+      for (const ref of schema.refs) {
+        if (ref.fromTable === focusTable) related.add(ref.toTable);
+        if (ref.toTable === focusTable) related.add(ref.fromTable);
+      }
+      return related;
     }
-    return related;
-  }, [hoveredTable, schema.refs]);
+    if (selectedEdge != null) {
+      const edge = np.edges[selectedEdge];
+      if (edge) return new Set<string>([edge.from, edge.to]);
+    }
+    return null;
+  }, [focusTable, selectedEdge, schema.refs, np.edges]);
+
+  const hasFocus = focusTable != null || selectedEdge != null;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -160,14 +181,17 @@ export function DiagramCanvas({
             <TableGroupRect key={group.name} group={group} nodes={np.nodes} />
           ))}
           {np.edges.map((edge, i) => {
-            const connected =
-              edge.from === hoveredTable || edge.to === hoveredTable;
+            const connectedToTable =
+              focusTable != null && (edge.from === focusTable || edge.to === focusTable);
+            const isActive = connectedToTable || selectedEdge === i;
             return (
               <RelationshipEdge
                 key={`${edge.from}-${edge.to}-${i}`}
                 edge={edge}
-                isDimmed={hoveredTable != null && !connected}
-                isHighlighted={connected}
+                isDimmed={hasFocus && !isActive}
+                isHighlighted={isActive}
+                isAnimated={isActive}
+                onSelect={(e) => handleEdgeSelect(i, e)}
               />
             );
           })}

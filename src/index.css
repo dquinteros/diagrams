@@ -17,3 +17,15 @@ body {
   height: 100vh;
   overflow: hidden;
 }
+
+/* Flowing "marching ants" on a highlighted/selected relationship line. */
+@keyframes edge-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.edge-animated {
+  stroke-dasharray: 7 5;
+  animation: edge-flow 0.55s linear infinite;
+}
