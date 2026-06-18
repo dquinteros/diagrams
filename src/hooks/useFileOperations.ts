@@ -11,9 +11,11 @@ interface UseFileOperationsResult {
   isDirty: boolean;
   setDirty: (dirty: boolean) => void;
   openFile: () => Promise<{ content: string; path: string } | null>;
+  openSqlFile: () => Promise<string | null>;
   saveFile: (content: string) => Promise<void>;
   saveFileAs: (content: string) => Promise<void>;
   exportSql: (sql: string, dialect: string) => Promise<void>;
+  importSql: (sql: string, dialect: string) => Promise<string>;
 }
 
 export function useFileOperations(): UseFileOperationsResult {
@@ -79,13 +81,34 @@ export function useFileOperations(): UseFileOperationsResult {
     }
   }, []);
 
+  const openSqlFile = useCallback(async () => {
+    try {
+      const result = await invoke<FileResult | null>("open_sql_file");
+      return result ? result.content : null;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`Failed to open SQL file: ${msg}`);
+    }
+  }, []);
+
+  const importSql = useCallback(async (sql: string, dialect: string) => {
+    try {
+      return await invoke<string>("import_sql", { input: sql, dialect });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`Failed to import SQL: ${msg}`);
+    }
+  }, []);
+
   return {
     filePath,
     isDirty,
     setDirty,
     openFile,
+    openSqlFile,
     saveFile,
     saveFileAs,
     exportSql,
+    importSql,
   };
 }

@@ -77,7 +77,7 @@ interface DbmlEditorProps {
 }
 
 export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(
-  function DbmlEditor({ initialValue, onChange, onCursorChange, parseError, schemaRef }, ref) {
+  function DbmlEditor({ initialValue, onChange, onCursorChange, schemaRef }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);

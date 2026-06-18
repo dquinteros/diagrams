@@ -4,6 +4,7 @@ import { DbmlEditor, type DbmlEditorHandle } from "./components/Editor/DbmlEdito
 import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { DiagramCanvas } from "./components/Diagram/DiagramCanvas";
 import { Toolbar } from "./components/Toolbar/Toolbar";
+import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
@@ -74,11 +75,12 @@ function App() {
   const [rankdir, setRankdir] = useState<"LR" | "TB">("LR");
   const [detailLevel, setDetailLevel] = useState<DetailLevel>("full");
   const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const editorRef = useRef<DbmlEditorHandle>(null);
-  const schemaRef = useRef(schema);
-  schemaRef.current = schema;
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { schema, parseError, isLoading } = useDbmlParser(content);
+  const schemaRef = useRef(schema);
+  schemaRef.current = schema;
   const layout = useDiagramLayout(schema, rankdir);
   const fileOps = useFileOperations();
   const contentRef = useRef(content);
@@ -140,6 +142,44 @@ function App() {
     a.click();
     URL.revokeObjectURL(url);
   }, []);
+
+  const applyImportedDbml = useCallback(
+    (dbml: string) => {
+      setContent(dbml);
+      setEditorKey((k) => k + 1);
+      fileOps.setDirty(true);
+    },
+    [fileOps]
+  );
+
+  const handleImportFile = useCallback(
+    async (dialect: string) => {
+      try {
+        const sql = await fileOps.openSqlFile();
+        if (sql == null) return;
+        const dbml = await fileOps.importSql(sql, dialect);
+        applyImportedDbml(dbml);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        alert(`Import failed: ${msg}`);
+      }
+    },
+    [fileOps, applyImportedDbml]
+  );
+
+  const handleImportSqlConfirm = useCallback(
+    async (sql: string, dialect: string) => {
+      try {
+        const dbml = await fileOps.importSql(sql, dialect);
+        applyImportedDbml(dbml);
+        setShowImportModal(false);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        alert(`Import failed: ${msg}`);
+      }
+    },
+    [fileOps, applyImportedDbml]
+  );
 
   const toggleRankdir = useCallback(() => {
     setRankdir((prev) => (prev === "LR" ? "TB" : "LR"));
@@ -233,6 +273,8 @@ function App() {
         onSaveAs={handleSaveAs}
         onExportSql={handleExportSql}
         onExportSvg={handleExportSvg}
+        onImportFile={handleImportFile}
+        onPasteSql={() => setShowImportModal(true)}
       />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div
@@ -286,6 +328,12 @@ function App() {
           )}
         </div>
       </div>
+      {showImportModal && (
+        <ImportSqlModal
+          onImport={handleImportSqlConfirm}
+          onClose={() => setShowImportModal(false)}
+        />
+      )}
     </div>
   );
 }

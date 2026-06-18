@@ -155,7 +155,6 @@ export function DiagramCanvas({
                 layout={nodeLayout}
                 schema={schema}
                 isSelected={activeTable === table.name}
-                onSelect={setSelectedTable}
                 onDragStart={handleTableDragStart}
                 onNavigateToSource={onNavigateToSource}
                 onHover={setHoverInfo}

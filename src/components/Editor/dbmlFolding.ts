@@ -1,6 +1,6 @@
 import { foldService } from "@codemirror/language";
 
-export const dbmlFoldService = foldService.of((state, lineStart, lineEnd) => {
+export const dbmlFoldService = foldService.of((state, lineStart) => {
   const line = state.doc.lineAt(lineStart);
   const text = line.text.trimStart();
 

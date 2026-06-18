@@ -15,7 +15,6 @@ interface TableNodeProps {
   layout: LayoutNode;
   schema: SchemaIR;
   isSelected: boolean;
-  onSelect: (tableName: string) => void;
   onDragStart: (tableName: string, e: React.MouseEvent) => void;
   onNavigateToSource?: (spanRange: [number, number]) => void;
   onHover?: (info: { tableName: string; columnName?: string; x: number; y: number } | null) => void;
@@ -27,7 +26,6 @@ export function TableNode({
   layout,
   schema,
   isSelected,
-  onSelect,
   onDragStart,
   onNavigateToSource,
   onHover,

@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { LayoutEdge } from "../../types/layout";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -53,8 +54,8 @@ export function RelationshipEdge({ edge }: RelationshipEdgeProps) {
     );
   };
 
-  let fromMarker: JSX.Element | null = null;
-  let toMarker: JSX.Element | null = null;
+  let fromMarker: ReactElement | null = null;
+  let toMarker: ReactElement | null = null;
 
   switch (edge.relation) {
     case "one_to_one":

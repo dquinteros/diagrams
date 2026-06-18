@@ -1,5 +1,6 @@
 import type { ParseError } from "../../types/schema";
 import { ExportMenu } from "./ExportMenu";
+import { ImportMenu } from "./ImportMenu";
 import { useTheme } from "../../context/ThemeContext";
 
 interface ToolbarProps {
@@ -14,6 +15,8 @@ interface ToolbarProps {
   onSaveAs: () => void;
   onExportSql: (dialect: string) => void;
   onExportSvg: () => void;
+  onImportFile: (dialect: string) => void;
+  onPasteSql: () => void;
 }
 
 export function Toolbar({
@@ -28,6 +31,8 @@ export function Toolbar({
   onSaveAs,
   onExportSql,
   onExportSvg,
+  onImportFile,
+  onPasteSql,
 }: ToolbarProps) {
   const { theme, themeId, toggleTheme } = useTheme();
 
@@ -102,6 +107,7 @@ export function Toolbar({
         <button onClick={onOpen} style={btnStyle} title="Open (Cmd+O)">Open</button>
         <button onClick={onSave} style={btnStyle} title="Save (Cmd+S)">Save</button>
         <button onClick={onSaveAs} style={btnStyle} title="Save As (Cmd+Shift+S)">Save As</button>
+        <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />
         <ExportMenu onExportSql={onExportSql} onExportSvg={onExportSvg} />
       </div>
     </div>
