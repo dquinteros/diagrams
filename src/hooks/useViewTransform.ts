@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { LayoutResult, LayoutNode } from "../types/layout";
+import { loadTransform, saveTransform } from "../lib/layoutStorage";
 
 export interface ViewTransform {
   x: number;
@@ -9,6 +10,7 @@ export interface ViewTransform {
 
 interface UseViewTransformResult {
   transform: ViewTransform;
+  setTransform: React.Dispatch<React.SetStateAction<ViewTransform>>;
   isPanning: boolean;
   zoomIn: () => void;
   zoomOut: () => void;
@@ -22,11 +24,17 @@ interface UseViewTransformResult {
   svgRef: React.RefObject<SVGSVGElement | null>;
 }
 
-export function useViewTransform(layout: LayoutResult): UseViewTransformResult {
+export function useViewTransform(
+  layout: LayoutResult,
+  storageKey: string
+): UseViewTransformResult {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const [transform, setTransform] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform] = useState<ViewTransform>(
+    () => loadTransform(storageKey) ?? { x: 40, y: 40, scale: 1 }
+  );
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0 });
+  const prevKeyRef = useRef<string>(storageKey);
 
   const zoomTo = useCallback((factor: number) => {
     setTransform((prev) => {
@@ -113,13 +121,23 @@ export function useViewTransform(layout: LayoutResult): UseViewTransformResult {
     setIsPanning(false);
   }, []);
 
+  // Restore persisted camera when the active file changes.
   useEffect(() => {
-    if (layout.nodes.size === 0) return;
-    setTransform({ x: 40, y: 40, scale: 1 });
-  }, [layout.nodes.size]);
+    if (storageKey !== prevKeyRef.current) {
+      prevKeyRef.current = storageKey;
+      setTransform(loadTransform(storageKey) ?? { x: 40, y: 40, scale: 1 });
+    }
+  }, [storageKey]);
+
+  // Persist camera (debounced) so pan/zoom survives reloads.
+  useEffect(() => {
+    const timer = setTimeout(() => saveTransform(storageKey, transform), 400);
+    return () => clearTimeout(timer);
+  }, [transform, storageKey]);
 
   return {
     transform,
+    setTransform,
     isPanning,
     zoomIn,
     zoomOut,

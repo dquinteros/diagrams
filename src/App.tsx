@@ -5,6 +5,7 @@ import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { DiagramCanvas } from "./components/Diagram/DiagramCanvas";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
+import { exportSvg, exportPng, exportPdf } from "./lib/exportImage";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
@@ -130,18 +131,31 @@ function App() {
   );
 
   const handleExportSvg = useCallback(() => {
-    const svgEl = document.querySelector("svg");
-    if (!svgEl) return;
-    const clone = svgEl.cloneNode(true) as SVGElement;
-    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    const blob = new Blob([clone.outerHTML], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "diagram.svg";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, []);
+    try {
+      exportSvg(layout.width, layout.height);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(`Export failed: ${msg}`);
+    }
+  }, [layout.width, layout.height]);
+
+  const handleExportPng = useCallback(async () => {
+    try {
+      await exportPng(layout.width, layout.height, theme.canvasBg);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(`Export failed: ${msg}`);
+    }
+  }, [layout.width, layout.height, theme.canvasBg]);
+
+  const handleExportPdf = useCallback(async () => {
+    try {
+      await exportPdf(layout.width, layout.height, theme.canvasBg);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(`Export failed: ${msg}`);
+    }
+  }, [layout.width, layout.height, theme.canvasBg]);
 
   const applyImportedDbml = useCallback(
     (dbml: string) => {
@@ -273,6 +287,8 @@ function App() {
         onSaveAs={handleSaveAs}
         onExportSql={handleExportSql}
         onExportSvg={handleExportSvg}
+        onExportPng={handleExportPng}
+        onExportPdf={handleExportPdf}
         onImportFile={handleImportFile}
         onPasteSql={() => setShowImportModal(true)}
       />
@@ -324,6 +340,7 @@ function App() {
               onToggleDetailLevel={toggleDetailLevel}
               highlightedTable={highlightedTable}
               onNavigateToSource={handleNavigateToSource}
+              storageKey={fileOps.filePath ?? "untitled"}
             />
           )}
         </div>

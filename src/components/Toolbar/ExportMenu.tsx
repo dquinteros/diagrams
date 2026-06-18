@@ -4,6 +4,8 @@ import { useTheme } from "../../context/ThemeContext";
 interface ExportMenuProps {
   onExportSql: (dialect: string) => void;
   onExportSvg: () => void;
+  onExportPng: () => void;
+  onExportPdf: () => void;
 }
 
 const DIALECTS = [
@@ -13,8 +15,19 @@ const DIALECTS = [
   { id: "mssql", label: "SQL Server" },
 ];
 
-export function ExportMenu({ onExportSql, onExportSvg }: ExportMenuProps) {
+const IMAGE_FORMATS = [
+  { id: "svg", label: "SVG" },
+  { id: "png", label: "PNG" },
+  { id: "pdf", label: "PDF" },
+];
+
+export function ExportMenu({ onExportSql, onExportSvg, onExportPng, onExportPdf }: ExportMenuProps) {
   const { theme } = useTheme();
+  const imageHandlers: Record<string, () => void> = {
+    svg: onExportSvg,
+    png: onExportPng,
+    pdf: onExportPdf,
+  };
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -92,25 +105,28 @@ export function ExportMenu({ onExportSql, onExportSvg }: ExportMenuProps) {
           <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
             Export Image
           </div>
-          <button
-            onClick={() => { onExportSvg(); setIsOpen(false); }}
-            style={{
-              display: "block",
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              color: theme.controlText,
-              padding: "6px 12px",
-              cursor: "pointer",
-              fontSize: 12,
-              fontFamily: "monospace",
-              textAlign: "left",
-            }}
-            onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
-            onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = "transparent")}
-          >
-            SVG
-          </button>
+          {IMAGE_FORMATS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => { imageHandlers[f.id](); setIsOpen(false); }}
+              style={{
+                display: "block",
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                color: theme.controlText,
+                padding: "6px 12px",
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "monospace",
+                textAlign: "left",
+              }}
+              onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
+              onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = "transparent")}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       )}
     </div>

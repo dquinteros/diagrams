@@ -28,6 +28,7 @@ interface DiagramCanvasProps {
   onToggleDetailLevel: () => void;
   highlightedTable: string | null;
   onNavigateToSource?: (spanRange: [number, number]) => void;
+  storageKey: string;
 }
 
 const DRAG_THRESHOLD = 5;
@@ -41,10 +42,11 @@ export function DiagramCanvas({
   onToggleDetailLevel,
   highlightedTable,
   onNavigateToSource,
+  storageKey,
 }: DiagramCanvasProps) {
   const { theme } = useTheme();
-  const vt = useViewTransform(layout);
-  const np = useNodePositions(layout, schema);
+  const vt = useViewTransform(layout, storageKey);
+  const np = useNodePositions(layout, schema, storageKey);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 

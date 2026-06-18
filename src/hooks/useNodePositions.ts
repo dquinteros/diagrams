@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { SchemaIR } from "../types/schema";
 import type { LayoutResult, LayoutNode, LayoutEdge } from "../types/layout";
 import { recomputeEdges } from "../lib/layoutEngine";
+import { loadPositions, savePositions } from "../lib/layoutStorage";
 
 interface UseNodePositionsResult {
   nodes: Map<string, LayoutNode>;
@@ -16,17 +17,36 @@ interface UseNodePositionsResult {
 
 export function useNodePositions(
   baseLayout: LayoutResult,
-  schema: SchemaIR | null
+  schema: SchemaIR | null,
+  storageKey: string
 ): UseNodePositionsResult {
-  const [overrides, setOverrides] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const [overrides, setOverrides] = useState<Map<string, { x: number; y: number }>>(
+    () => loadPositions(storageKey) ?? new Map()
+  );
   const [dragTarget, setDragTarget] = useState<string | null>(null);
   const prevLayoutRef = useRef<LayoutResult>(baseLayout);
+  const prevKeyRef = useRef<string>(storageKey);
 
   useEffect(() => {
     if (baseLayout !== prevLayoutRef.current) {
       prevLayoutRef.current = baseLayout;
     }
   }, [baseLayout]);
+
+  // Load persisted positions when the active file changes.
+  useEffect(() => {
+    if (storageKey !== prevKeyRef.current) {
+      prevKeyRef.current = storageKey;
+      setOverrides(loadPositions(storageKey) ?? new Map());
+    }
+  }, [storageKey]);
+
+  const persist = useCallback(
+    (next: Map<string, { x: number; y: number }>) => {
+      savePositions(storageKey, next);
+    },
+    [storageKey]
+  );
 
   const nodes = useMemo(() => {
     const result = new Map<string, LayoutNode>();
@@ -46,6 +66,9 @@ export function useNodePositions(
     return recomputeEdges(schema, nodes);
   }, [schema, nodes, baseLayout.edges, overrides.size]);
 
+  const overridesRef = useRef(overrides);
+  overridesRef.current = overrides;
+
   const moveNode = useCallback((id: string, x: number, y: number) => {
     setOverrides((prev) => {
       const next = new Map(prev);
@@ -56,7 +79,8 @@ export function useNodePositions(
 
   const resetPositions = useCallback(() => {
     setOverrides(new Map());
-  }, []);
+    persist(new Map());
+  }, [persist]);
 
   const startDrag = useCallback((id: string) => {
     setDragTarget(id);
@@ -64,7 +88,8 @@ export function useNodePositions(
 
   const endDrag = useCallback(() => {
     setDragTarget(null);
-  }, []);
+    persist(overridesRef.current);
+  }, [persist]);
 
   return {
     nodes,

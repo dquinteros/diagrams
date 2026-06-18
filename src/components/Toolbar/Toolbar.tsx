@@ -15,6 +15,8 @@ interface ToolbarProps {
   onSaveAs: () => void;
   onExportSql: (dialect: string) => void;
   onExportSvg: () => void;
+  onExportPng: () => void;
+  onExportPdf: () => void;
   onImportFile: (dialect: string) => void;
   onPasteSql: () => void;
 }
@@ -31,6 +33,8 @@ export function Toolbar({
   onSaveAs,
   onExportSql,
   onExportSvg,
+  onExportPng,
+  onExportPdf,
   onImportFile,
   onPasteSql,
 }: ToolbarProps) {
@@ -108,7 +112,12 @@ export function Toolbar({
         <button onClick={onSave} style={btnStyle} title="Save (Cmd+S)">Save</button>
         <button onClick={onSaveAs} style={btnStyle} title="Save As (Cmd+Shift+S)">Save As</button>
         <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />
-        <ExportMenu onExportSql={onExportSql} onExportSvg={onExportSvg} />
+        <ExportMenu
+          onExportSql={onExportSql}
+          onExportSvg={onExportSvg}
+          onExportPng={onExportPng}
+          onExportPdf={onExportPdf}
+        />
       </div>
     </div>
   );
