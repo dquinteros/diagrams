@@ -36,24 +36,28 @@ export function RelationshipEdge({ edge, isDimmed, isHighlighted }: Relationship
   const start = edge.points[0];
   const end = edge.points[edge.points.length - 1];
 
+  // Markers sit OUTSIDE the table edge (in the `out` direction) so they are not
+  // hidden behind the table, which renders on top of edges.
   const renderOneMarker = (x: number, y: number, direction: "left" | "right") => {
-    const dx = direction === "right" ? -8 : 8;
+    const out = direction === "right" ? 1 : -1;
+    const tickX = x + 8 * out;
     return (
       <line
-        x1={x + dx} y1={y - 6}
-        x2={x + dx} y2={y + 6}
-        stroke={theme.edgeLine} strokeWidth={2}
+        x1={tickX} y1={y - 6}
+        x2={tickX} y2={y + 6}
+        stroke={strokeColor} strokeWidth={2}
       />
     );
   };
 
   const renderManyMarker = (x: number, y: number, direction: "left" | "right") => {
-    const dx = direction === "right" ? -10 : 10;
+    const out = direction === "right" ? 1 : -1;
+    const apexX = x + 14 * out;
     return (
       <g>
-        <line x1={x} y1={y} x2={x + dx} y2={y - 7} stroke={theme.edgeLine} strokeWidth={1.5} />
-        <line x1={x} y1={y} x2={x + dx} y2={y + 7} stroke={theme.edgeLine} strokeWidth={1.5} />
-        <line x1={x} y1={y} x2={x + dx} y2={y} stroke={theme.edgeLine} strokeWidth={1.5} />
+        <line x1={apexX} y1={y} x2={x} y2={y - 7} stroke={strokeColor} strokeWidth={1.5} />
+        <line x1={apexX} y1={y} x2={x} y2={y + 7} stroke={strokeColor} strokeWidth={1.5} />
+        <line x1={apexX} y1={y} x2={x} y2={y} stroke={strokeColor} strokeWidth={1.5} />
       </g>
     );
   };
