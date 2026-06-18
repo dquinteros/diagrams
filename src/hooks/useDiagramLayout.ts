@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { SchemaIR } from "../types/schema";
-import type { LayoutResult } from "../types/layout";
+import type { LayoutResult, DetailLevel } from "../types/layout";
 import { computeLayout } from "../lib/layoutEngine";
 
 const EMPTY_LAYOUT: LayoutResult = {
@@ -12,7 +12,8 @@ const EMPTY_LAYOUT: LayoutResult = {
 
 export function useDiagramLayout(
   schema: SchemaIR | null,
-  rankdir: "LR" | "TB" = "LR"
+  rankdir: "LR" | "TB" = "LR",
+  detailLevel: DetailLevel = "full"
 ): LayoutResult {
   return useMemo(() => {
     if (!schema) return EMPTY_LAYOUT;
@@ -21,6 +22,6 @@ export function useDiagramLayout(
       schema.enums.length === 0 &&
       schema.notes.length === 0;
     if (isEmpty) return EMPTY_LAYOUT;
-    return computeLayout(schema, { rankdir });
-  }, [schema, rankdir]);
+    return computeLayout(schema, { rankdir, detailLevel });
+  }, [schema, rankdir, detailLevel]);
 }

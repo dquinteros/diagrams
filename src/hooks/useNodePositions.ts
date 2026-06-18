@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { SchemaIR } from "../types/schema";
-import type { LayoutResult, LayoutNode, LayoutEdge } from "../types/layout";
+import type { LayoutResult, LayoutNode, LayoutEdge, DetailLevel } from "../types/layout";
 import { recomputeEdges } from "../lib/layoutEngine";
 import { loadPositions, savePositions } from "../lib/layoutStorage";
 
@@ -18,7 +18,8 @@ interface UseNodePositionsResult {
 export function useNodePositions(
   baseLayout: LayoutResult,
   schema: SchemaIR | null,
-  storageKey: string
+  storageKey: string,
+  detailLevel: DetailLevel
 ): UseNodePositionsResult {
   const [overrides, setOverrides] = useState<Map<string, { x: number; y: number }>>(
     () => loadPositions(storageKey) ?? new Map()
@@ -63,8 +64,8 @@ export function useNodePositions(
 
   const edges = useMemo(() => {
     if (!schema || overrides.size === 0) return baseLayout.edges;
-    return recomputeEdges(schema, nodes);
-  }, [schema, nodes, baseLayout.edges, overrides.size]);
+    return recomputeEdges(schema, nodes, detailLevel);
+  }, [schema, nodes, baseLayout.edges, overrides.size, detailLevel]);
 
   const moveNode = useCallback((id: string, x: number, y: number) => {
     setOverrides((prev) => {

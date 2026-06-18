@@ -9,6 +9,7 @@ import {
   TABLE_BORDER_RADIUS,
 } from "../../lib/constants";
 import { useTheme } from "../../context/ThemeContext";
+import { getFkColumns, getVisibleColumns } from "../../lib/layoutEngine";
 
 interface TableNodeProps {
   table: TableIR;
@@ -35,22 +36,8 @@ export function TableNode({
 }: TableNodeProps) {
   const { theme } = useTheme();
 
-  const fkColumns = new Set<string>();
-  for (const ref of schema.refs) {
-    if (ref.fromTable === table.name) {
-      ref.fromColumns.forEach((c) => fkColumns.add(c));
-    }
-    if (ref.toTable === table.name) {
-      ref.toColumns.forEach((c) => fkColumns.add(c));
-    }
-  }
-
-  const visibleColumns =
-    detailLevel === "name-only"
-      ? []
-      : detailLevel === "keys-only"
-        ? table.columns.filter((c) => c.isPk || fkColumns.has(c.name))
-        : table.columns;
+  const fkColumns = getFkColumns(schema, table.name);
+  const visibleColumns = getVisibleColumns(table, fkColumns, detailLevel);
 
   const height =
     HEADER_HEIGHT + visibleColumns.length * ROW_HEIGHT + TABLE_PADDING * 2;

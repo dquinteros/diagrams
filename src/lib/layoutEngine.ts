@@ -1,6 +1,6 @@
 import dagre from "@dagrejs/dagre";
-import type { SchemaIR } from "../types/schema";
-import type { LayoutResult, LayoutNode, LayoutEdge } from "../types/layout";
+import type { SchemaIR, TableIR, ColumnIR } from "../types/schema";
+import type { LayoutResult, LayoutNode, LayoutEdge, DetailLevel } from "../types/layout";
 import {
   TABLE_WIDTH,
   HEADER_HEIGHT,
@@ -15,8 +15,35 @@ import {
   NOTE_PADDING,
 } from "./constants";
 
-function tableHeight(columnCount: number): number {
-  return HEADER_HEIGHT + columnCount * ROW_HEIGHT + TABLE_PADDING * 2;
+/** Columns that participate in a relationship for the given table. */
+export function getFkColumns(schema: SchemaIR, tableName: string): Set<string> {
+  const fkColumns = new Set<string>();
+  for (const ref of schema.refs) {
+    if (ref.fromTable === tableName) {
+      ref.fromColumns.forEach((c) => fkColumns.add(c));
+    }
+    if (ref.toTable === tableName) {
+      ref.toColumns.forEach((c) => fkColumns.add(c));
+    }
+  }
+  return fkColumns;
+}
+
+/** The columns actually rendered for a table at the given detail level. */
+export function getVisibleColumns(
+  table: TableIR,
+  fkColumns: Set<string>,
+  detailLevel: DetailLevel
+): ColumnIR[] {
+  if (detailLevel === "name-only") return [];
+  if (detailLevel === "keys-only") {
+    return table.columns.filter((c) => c.isPk || fkColumns.has(c.name));
+  }
+  return table.columns;
+}
+
+function tableHeight(visibleCount: number): number {
+  return HEADER_HEIGHT + visibleCount * ROW_HEIGHT + TABLE_PADDING * 2;
 }
 
 function enumHeight(valueCount: number): number {
@@ -28,24 +55,96 @@ export function noteHeight(content: string): number {
   return HEADER_HEIGHT + lines * NOTE_LINE_HEIGHT + NOTE_PADDING * 2;
 }
 
-function findColumnIndex(
-  schema: SchemaIR,
-  tableName: string,
-  columnName: string
-): number {
-  const table = schema.tables.find((t) => t.name === tableName);
-  if (!table) return 0;
-  const idx = table.columns.findIndex((c) => c.name === columnName);
-  return idx >= 0 ? idx : 0;
-}
-
 export interface LayoutOptions {
   rankdir: "LR" | "TB";
+  detailLevel: DetailLevel;
+}
+
+/**
+ * Vertical anchor for an edge endpoint: the centre of the column's row when the
+ * column is visible, otherwise the vertical centre of the (collapsed) table.
+ */
+function anchorY(
+  node: LayoutNode,
+  table: TableIR,
+  schema: SchemaIR,
+  detailLevel: DetailLevel,
+  columnName: string
+): number {
+  const visible = getVisibleColumns(table, getFkColumns(schema, table.name), detailLevel);
+  const idx = visible.findIndex((c) => c.name === columnName);
+  if (idx < 0) {
+    return node.y + node.height / 2;
+  }
+  return node.y + HEADER_HEIGHT + TABLE_PADDING + idx * ROW_HEIGHT + ROW_HEIGHT / 2;
+}
+
+/** Build a single edge between two positioned nodes. */
+function computeEdge(
+  schema: SchemaIR,
+  ref: SchemaIR["refs"][number],
+  fromNode: LayoutNode,
+  toNode: LayoutNode,
+  detailLevel: DetailLevel
+): LayoutEdge {
+  const fromTable = schema.tables.find((t) => t.name === ref.fromTable)!;
+  const toTable = schema.tables.find((t) => t.name === ref.toTable)!;
+
+  const fromCol = ref.fromColumns[0] || "";
+  const toCol = ref.toColumns[0] || "";
+
+  const fromY = anchorY(fromNode, fromTable, schema, detailLevel, fromCol);
+  const toY = anchorY(toNode, toTable, schema, detailLevel, toCol);
+
+  // Connect on the sides facing each other so edges never loop awkwardly.
+  const fromCx = fromNode.x + fromNode.width / 2;
+  const toCx = toNode.x + toNode.width / 2;
+  const exitRight = toCx >= fromCx;
+
+  const fromX = exitRight ? fromNode.x + fromNode.width : fromNode.x;
+  const toX = exitRight ? toNode.x : toNode.x + toNode.width;
+  const fromSide: "left" | "right" = exitRight ? "right" : "left";
+  const toSide: "left" | "right" = exitRight ? "left" : "right";
+
+  const midX = (fromX + toX) / 2;
+
+  return {
+    from: ref.fromTable,
+    to: ref.toTable,
+    fromColumn: fromCol,
+    toColumn: toCol,
+    fromColumnIndex: 0,
+    toColumnIndex: 0,
+    relation: ref.relation,
+    fromSide,
+    toSide,
+    points: [
+      { x: fromX, y: fromY },
+      { x: midX, y: fromY },
+      { x: midX, y: toY },
+      { x: toX, y: toY },
+    ],
+  };
+}
+
+function buildEdges(
+  schema: SchemaIR,
+  nodes: Map<string, LayoutNode>,
+  detailLevel: DetailLevel
+): LayoutEdge[] {
+  const edges: LayoutEdge[] = [];
+  for (const ref of schema.refs) {
+    const fromNode = nodes.get(ref.fromTable);
+    const toNode = nodes.get(ref.toTable);
+    if (!fromNode || !toNode) continue;
+    edges.push(computeEdge(schema, ref, fromNode, toNode, detailLevel));
+  }
+  return edges;
 }
 
 export function computeLayout(
   schema: SchemaIR,
-  options: LayoutOptions = { rankdir: "LR" }
+  options: LayoutOptions = { rankdir: "LR", detailLevel: "full" }
 ): LayoutResult {
   const g = new dagre.graphlib.Graph();
   g.setGraph({
@@ -58,9 +157,11 @@ export function computeLayout(
   g.setDefaultEdgeLabel(() => ({}));
 
   for (const table of schema.tables) {
+    const fk = getFkColumns(schema, table.name);
+    const visibleCount = getVisibleColumns(table, fk, options.detailLevel).length;
     g.setNode(table.name, {
       width: TABLE_WIDTH,
-      height: tableHeight(table.columns.length),
+      height: tableHeight(visibleCount),
     });
   }
 
@@ -86,51 +187,7 @@ export function computeLayout(
     }
   }
 
-  const edges: LayoutEdge[] = [];
-  for (const ref of schema.refs) {
-    const fromNode = nodes.get(ref.fromTable);
-    const toNode = nodes.get(ref.toTable);
-    if (!fromNode || !toNode) continue;
-
-    const fromCol = ref.fromColumns[0] || "";
-    const toCol = ref.toColumns[0] || "";
-    const fromColIdx = findColumnIndex(schema, ref.fromTable, fromCol);
-    const toColIdx = findColumnIndex(schema, ref.toTable, toCol);
-
-    const fromY =
-      fromNode.y +
-      HEADER_HEIGHT +
-      TABLE_PADDING +
-      fromColIdx * ROW_HEIGHT +
-      ROW_HEIGHT / 2;
-    const toY =
-      toNode.y +
-      HEADER_HEIGHT +
-      TABLE_PADDING +
-      toColIdx * ROW_HEIGHT +
-      ROW_HEIGHT / 2;
-
-    const fromX = fromNode.x + fromNode.width;
-    const toX = toNode.x;
-
-    const midX = (fromX + toX) / 2;
-
-    edges.push({
-      from: ref.fromTable,
-      to: ref.toTable,
-      fromColumn: fromCol,
-      toColumn: toCol,
-      fromColumnIndex: fromColIdx,
-      toColumnIndex: toColIdx,
-      relation: ref.relation,
-      points: [
-        { x: fromX, y: fromY },
-        { x: midX, y: fromY },
-        { x: midX, y: toY },
-        { x: toX, y: toY },
-      ],
-    });
-  }
+  const edges = buildEdges(schema, nodes, options.detailLevel);
 
   const graphInfo = g.graph();
   const baseWidth = graphInfo?.width ?? 800;
@@ -179,45 +236,8 @@ export function computeLayout(
 
 export function recomputeEdges(
   schema: SchemaIR,
-  nodes: Map<string, LayoutNode>
+  nodes: Map<string, LayoutNode>,
+  detailLevel: DetailLevel
 ): LayoutEdge[] {
-  const edges: LayoutEdge[] = [];
-
-  for (const ref of schema.refs) {
-    const fromNode = nodes.get(ref.fromTable);
-    const toNode = nodes.get(ref.toTable);
-    if (!fromNode || !toNode) continue;
-
-    const fromCol = ref.fromColumns[0] || "";
-    const toCol = ref.toColumns[0] || "";
-    const fromColIdx = findColumnIndex(schema, ref.fromTable, fromCol);
-    const toColIdx = findColumnIndex(schema, ref.toTable, toCol);
-
-    const fromY =
-      fromNode.y + HEADER_HEIGHT + TABLE_PADDING + fromColIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
-    const toY =
-      toNode.y + HEADER_HEIGHT + TABLE_PADDING + toColIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-    const fromX = fromNode.x + fromNode.width;
-    const toX = toNode.x;
-    const midX = (fromX + toX) / 2;
-
-    edges.push({
-      from: ref.fromTable,
-      to: ref.toTable,
-      fromColumn: fromCol,
-      toColumn: toCol,
-      fromColumnIndex: fromColIdx,
-      toColumnIndex: toColIdx,
-      relation: ref.relation,
-      points: [
-        { x: fromX, y: fromY },
-        { x: midX, y: fromY },
-        { x: midX, y: toY },
-        { x: toX, y: toY },
-      ],
-    });
-  }
-
-  return edges;
+  return buildEdges(schema, nodes, detailLevel);
 }

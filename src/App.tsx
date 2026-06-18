@@ -99,7 +99,7 @@ function App() {
   const { schema, parseError, isLoading } = useDbmlParser(content);
   const schemaRef = useRef(schema);
   schemaRef.current = schema;
-  const layout = useDiagramLayout(schema, rankdir);
+  const layout = useDiagramLayout(schema, rankdir, detailLevel);
   const fileOps = useFileOperations();
 
   const [dividerPos, setDividerPos] = useState(40);

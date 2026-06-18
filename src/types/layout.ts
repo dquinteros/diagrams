@@ -14,6 +14,8 @@ export interface LayoutEdge {
   fromColumnIndex: number;
   toColumnIndex: number;
   relation: string;
+  fromSide: "left" | "right";
+  toSide: "left" | "right";
   points: { x: number; y: number }[];
 }
 

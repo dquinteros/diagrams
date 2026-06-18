@@ -58,25 +58,28 @@ export function RelationshipEdge({ edge, isDimmed, isHighlighted }: Relationship
     );
   };
 
+  const fromDir = edge.fromSide ?? "right";
+  const toDir = edge.toSide ?? "left";
+
   let fromMarker: ReactElement | null = null;
   let toMarker: ReactElement | null = null;
 
   switch (edge.relation) {
     case "one_to_one":
-      fromMarker = renderOneMarker(start.x, start.y, "right");
-      toMarker = renderOneMarker(end.x, end.y, "left");
+      fromMarker = renderOneMarker(start.x, start.y, fromDir);
+      toMarker = renderOneMarker(end.x, end.y, toDir);
       break;
     case "one_to_many":
-      fromMarker = renderOneMarker(start.x, start.y, "right");
-      toMarker = renderManyMarker(end.x, end.y, "left");
+      fromMarker = renderOneMarker(start.x, start.y, fromDir);
+      toMarker = renderManyMarker(end.x, end.y, toDir);
       break;
     case "many_to_one":
-      fromMarker = renderManyMarker(start.x, start.y, "right");
-      toMarker = renderOneMarker(end.x, end.y, "left");
+      fromMarker = renderManyMarker(start.x, start.y, fromDir);
+      toMarker = renderOneMarker(end.x, end.y, toDir);
       break;
     case "many_to_many":
-      fromMarker = renderManyMarker(start.x, start.y, "right");
-      toMarker = renderManyMarker(end.x, end.y, "left");
+      fromMarker = renderManyMarker(start.x, start.y, fromDir);
+      toMarker = renderManyMarker(end.x, end.y, toDir);
       break;
   }
 

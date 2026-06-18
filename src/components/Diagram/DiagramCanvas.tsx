@@ -48,7 +48,7 @@ export function DiagramCanvas({
 }: DiagramCanvasProps) {
   const { theme } = useTheme();
   const vt = useViewTransform(layout, storageKey);
-  const np = useNodePositions(layout, schema, storageKey);
+  const np = useNodePositions(layout, schema, storageKey, detailLevel);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
