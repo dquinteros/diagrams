@@ -60,9 +60,29 @@ export interface LayoutOptions {
   detailLevel: DetailLevel;
 }
 
+// Endpoint distribution tuning.
+const ENDPOINT_PAD = 8; // inset from the top/bottom of a table edge
+const MIN_ENDPOINT_SEP = 14; // below this, endpoints are considered overlapping
+
+/** One end of an edge, anchored on a table's vertical edge. */
+interface Endpoint {
+  node: LayoutNode;
+  side: "left" | "right";
+  x: number;
+  y: number;
+  anchored: boolean; // true when y points at a real (visible) column row
+}
+
+interface RawEdge {
+  ref: SchemaIR["refs"][number];
+  from: Endpoint;
+  to: Endpoint;
+}
+
 /**
  * Vertical anchor for an edge endpoint: the centre of the column's row when the
- * column is visible, otherwise the vertical centre of the (collapsed) table.
+ * column is visible (a meaningful, unique anchor), otherwise the vertical centre
+ * of the (collapsed) table — flagged as not-anchored so it can be redistributed.
  */
 function anchorY(
   node: LayoutNode,
@@ -70,76 +90,121 @@ function anchorY(
   schema: SchemaIR,
   detailLevel: DetailLevel,
   columnName: string
-): number {
+): { y: number; anchored: boolean } {
   const visible = getVisibleColumns(table, getFkColumns(schema, table.name), detailLevel);
   const idx = visible.findIndex((c) => c.name === columnName);
   if (idx < 0) {
-    return node.y + node.height / 2;
+    return { y: node.y + node.height / 2, anchored: false };
   }
-  return node.y + HEADER_HEIGHT + TABLE_PADDING + idx * ROW_HEIGHT + ROW_HEIGHT / 2;
-}
-
-/** Build a single edge between two positioned nodes. */
-function computeEdge(
-  schema: SchemaIR,
-  ref: SchemaIR["refs"][number],
-  fromNode: LayoutNode,
-  toNode: LayoutNode,
-  detailLevel: DetailLevel
-): LayoutEdge {
-  const fromTable = schema.tables.find((t) => t.name === ref.fromTable)!;
-  const toTable = schema.tables.find((t) => t.name === ref.toTable)!;
-
-  const fromCol = ref.fromColumns[0] || "";
-  const toCol = ref.toColumns[0] || "";
-
-  const fromY = anchorY(fromNode, fromTable, schema, detailLevel, fromCol);
-  const toY = anchorY(toNode, toTable, schema, detailLevel, toCol);
-
-  // Connect on the sides facing each other so edges never loop awkwardly.
-  const fromCx = fromNode.x + fromNode.width / 2;
-  const toCx = toNode.x + toNode.width / 2;
-  const exitRight = toCx >= fromCx;
-
-  const fromX = exitRight ? fromNode.x + fromNode.width : fromNode.x;
-  const toX = exitRight ? toNode.x : toNode.x + toNode.width;
-  const fromSide: "left" | "right" = exitRight ? "right" : "left";
-  const toSide: "left" | "right" = exitRight ? "left" : "right";
-
-  const midX = (fromX + toX) / 2;
-
   return {
-    from: ref.fromTable,
-    to: ref.toTable,
-    fromColumn: fromCol,
-    toColumn: toCol,
-    fromColumnIndex: 0,
-    toColumnIndex: 0,
-    relation: ref.relation,
-    fromSide,
-    toSide,
-    points: [
-      { x: fromX, y: fromY },
-      { x: midX, y: fromY },
-      { x: midX, y: toY },
-      { x: toX, y: toY },
-    ],
+    y: node.y + HEADER_HEIGHT + TABLE_PADDING + idx * ROW_HEIGHT + ROW_HEIGHT / 2,
+    anchored: true,
   };
 }
 
+function makeEndpoint(
+  node: LayoutNode,
+  table: TableIR,
+  schema: SchemaIR,
+  detailLevel: DetailLevel,
+  columnName: string,
+  side: "left" | "right"
+): Endpoint {
+  const { y, anchored } = anchorY(node, table, schema, detailLevel, columnName);
+  const x = side === "right" ? node.x + node.width : node.x;
+  return { node, side, x, y, anchored };
+}
+
+/**
+ * Spread endpoints that share a table edge so their markers don't overlap.
+ * Edges pointing at distinct visible columns are left untouched (meaningful
+ * anchors); collapsed/colliding endpoints are distributed evenly along the edge.
+ */
+function distributeEndpoints(endpoints: Endpoint[]): void {
+  const groups = new Map<string, Endpoint[]>();
+  for (const ep of endpoints) {
+    const key = `${ep.node.id}|${ep.side}`;
+    const group = groups.get(key);
+    if (group) group.push(ep);
+    else groups.set(key, [ep]);
+  }
+
+  for (const group of groups.values()) {
+    if (group.length <= 1) continue;
+    const sorted = [...group].sort((a, b) => a.y - b.y);
+
+    const allAnchored = sorted.every((e) => e.anchored);
+    let collides = false;
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].y - sorted[i - 1].y < MIN_ENDPOINT_SEP) {
+        collides = true;
+        break;
+      }
+    }
+    // Distinct, real column anchors: keep them as-is.
+    if (allAnchored && !collides) continue;
+
+    const { y: nodeY, height } = sorted[0].node;
+    const top = nodeY + ENDPOINT_PAD;
+    const bottom = nodeY + height - ENDPOINT_PAD;
+    const n = sorted.length;
+    for (let i = 0; i < n; i++) {
+      sorted[i].y = top + ((bottom - top) * (i + 1)) / (n + 1);
+    }
+  }
+}
+
+/** Build all edges with non-overlapping connection points. */
 function buildEdges(
   schema: SchemaIR,
   nodes: Map<string, LayoutNode>,
   detailLevel: DetailLevel
 ): LayoutEdge[] {
-  const edges: LayoutEdge[] = [];
+  // Pass A: resolve sides and preferred anchors.
+  const raw: RawEdge[] = [];
+  const endpoints: Endpoint[] = [];
   for (const ref of schema.refs) {
     const fromNode = nodes.get(ref.fromTable);
     const toNode = nodes.get(ref.toTable);
     if (!fromNode || !toNode) continue;
-    edges.push(computeEdge(schema, ref, fromNode, toNode, detailLevel));
+    const fromTable = schema.tables.find((t) => t.name === ref.fromTable)!;
+    const toTable = schema.tables.find((t) => t.name === ref.toTable)!;
+
+    // Connect on the sides facing each other so edges never loop awkwardly.
+    const exitRight = toNode.x + toNode.width / 2 >= fromNode.x + fromNode.width / 2;
+    const fromSide: "left" | "right" = exitRight ? "right" : "left";
+    const toSide: "left" | "right" = exitRight ? "left" : "right";
+
+    const from = makeEndpoint(fromNode, fromTable, schema, detailLevel, ref.fromColumns[0] || "", fromSide);
+    const to = makeEndpoint(toNode, toTable, schema, detailLevel, ref.toColumns[0] || "", toSide);
+    raw.push({ ref, from, to });
+    endpoints.push(from, to);
   }
-  return edges;
+
+  // Pass B: spread overlapping endpoints along each table edge.
+  distributeEndpoints(endpoints);
+
+  // Build the orthogonal elbow path from the resolved endpoints.
+  return raw.map(({ ref, from, to }) => {
+    const midX = (from.x + to.x) / 2;
+    return {
+      from: ref.fromTable,
+      to: ref.toTable,
+      fromColumn: ref.fromColumns[0] || "",
+      toColumn: ref.toColumns[0] || "",
+      fromColumnIndex: 0,
+      toColumnIndex: 0,
+      relation: ref.relation,
+      fromSide: from.side,
+      toSide: to.side,
+      points: [
+        { x: from.x, y: from.y },
+        { x: midX, y: from.y },
+        { x: midX, y: to.y },
+        { x: to.x, y: to.y },
+      ],
+    };
+  });
 }
 
 export function computeLayout(
