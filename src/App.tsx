@@ -14,6 +14,7 @@ import {
   saveDetailLevel,
   loadRecentFiles,
   addRecentFile,
+  removeRecentFile,
 } from "./lib/prefs";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
@@ -132,9 +133,10 @@ function App() {
           docs.openDoc(path, content);
           rememberRecent(path);
         }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        alert(`Open failed: ${msg}`);
+      } catch {
+        // The file was moved or deleted: drop it from the recents list.
+        setRecentFiles(removeRecentFile(path));
+        alert(`File no longer available — removed from Recent:\n${path}`);
       }
     },
     [fileOps, docs, rememberRecent]

@@ -64,3 +64,13 @@ export function addRecentFile(path: string): string[] {
   }
   return next;
 }
+
+export function removeRecentFile(path: string): string[] {
+  const next = loadRecentFiles().filter((p) => p !== path);
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+  return next;
+}
