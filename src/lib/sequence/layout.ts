@@ -12,7 +12,8 @@ const BOTTOM_MARGIN = 30;
 const NOTE_LINE_H = 16;
 const NOTE_PAD = 8;
 const ACT_W = 10;
-const FRAG_HEADER = 22;
+const FRAG_HEADER = 40; // gap below a fragment header before its first content
+const FRAG_ELSE_GAP = 30; // gap below an `else` divider before its first content
 const FRAG_PAD = 10;
 const CHAR_W = 7;
 
@@ -153,7 +154,7 @@ export function layoutSequence(ir: SequenceIR): SeqLayout {
       case "fragment-else": {
         const top = fragStack[fragStack.length - 1];
         if (top) top.elses.push({ y, label: ev.label });
-        y += FRAG_HEADER / 2;
+        y += FRAG_ELSE_GAP;
         break;
       }
       case "fragment-end": {
