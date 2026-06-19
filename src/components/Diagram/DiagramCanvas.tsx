@@ -222,6 +222,8 @@ export function DiagramCanvas({
                 enumBlock={enumBlock}
                 layout={nodeLayout}
                 detailLevel={detailLevel}
+                onDragStart={handleTableDragStart}
+                onNavigateToSource={onNavigateToSource}
               />
             );
           })}
