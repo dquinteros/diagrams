@@ -6,6 +6,8 @@ import { languageExtensionsFor } from "./components/Editor/languages";
 import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { DiagramView } from "./components/DiagramView";
 import { defaultContentFor, DIAGRAM_TYPES } from "./lib/diagramTypes";
+import { parseSequence } from "./lib/sequence/parse";
+import { layoutSequence } from "./lib/sequence/layout";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { TabBar } from "./components/Toolbar/TabBar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
@@ -61,6 +63,24 @@ function App() {
     () => languageExtensionsFor(activeDoc.type, schemaRef),
     [activeDoc.type]
   );
+
+  // Sequence diagrams parse + layout entirely client-side.
+  const seq = useMemo(() => {
+    if (activeDoc.type !== "sequence") return null;
+    const { ir, error } = parseSequence(content);
+    return { layout: layoutSequence(ir), error };
+  }, [activeDoc.type, content]);
+
+  // Active diagram bounds (used by image export).
+  const diagramW = isDbml ? layout.width : seq?.layout.width ?? 0;
+  const diagramH = isDbml ? layout.height : seq?.layout.height ?? 0;
+
+  // Unified parse-error for the toolbar across diagram types.
+  const activeError = isDbml
+    ? parseError
+    : seq?.error
+      ? { message: seq.error.message, span: null as [number, number] | null }
+      : null;
 
   const [dividerPos, setDividerPos] = useState(40);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
@@ -178,30 +198,30 @@ function App() {
 
   const handleExportSvg = useCallback(() => {
     try {
-      exportSvg(layout.width, layout.height);
+      exportSvg(diagramW, diagramH);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       alert(`Export failed: ${msg}`);
     }
-  }, [layout.width, layout.height]);
+  }, [diagramW, diagramH]);
 
   const handleExportPng = useCallback(async () => {
     try {
-      await exportPng(layout.width, layout.height, theme.canvasBg);
+      await exportPng(diagramW, diagramH, theme.canvasBg);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       alert(`Export failed: ${msg}`);
     }
-  }, [layout.width, layout.height, theme.canvasBg]);
+  }, [diagramW, diagramH, theme.canvasBg]);
 
   const handleExportPdf = useCallback(async () => {
     try {
-      await exportPdf(layout.width, layout.height, theme.canvasBg);
+      await exportPdf(diagramW, diagramH, theme.canvasBg);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       alert(`Export failed: ${msg}`);
     }
-  }, [layout.width, layout.height, theme.canvasBg]);
+  }, [diagramW, diagramH, theme.canvasBg]);
 
   const applyImportedDbml = useCallback(
     (dbml: string) => {
@@ -448,12 +468,14 @@ function App() {
       onMouseUp={handleMouseUp}
     >
       <Toolbar
-        parseError={parseError}
+        parseError={activeError}
         isLoading={isLoading}
         stats={
           isDbml && schema
             ? `${schema.tables.length} tables, ${schema.refs.length} refs`
-            : DIAGRAM_TYPES[activeDoc.type].label
+            : activeDoc.type === "sequence" && seq
+              ? `${seq.layout.participants.length} participants, ${seq.layout.messages.length} messages`
+              : DIAGRAM_TYPES[activeDoc.type].label
         }
         filePath={activeDoc.filePath}
         isDirty={activeDoc.isDirty}
@@ -477,7 +499,7 @@ function App() {
         activeId={activeId}
         onSelect={docs.setActive}
         onClose={requestCloseDoc}
-        onNew={() => docs.newDoc("dbml", defaultContentFor("dbml"))}
+        onNew={(type) => docs.newDoc(type, defaultContentFor(type))}
       />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div
@@ -527,6 +549,7 @@ function App() {
             highlightedTable={highlightedTable}
             onNavigateToSource={handleNavigateToSource}
             storageKey={`${activeDoc.filePath ?? `untitled-${activeId}`}::${rankdir}`}
+            seqLayout={seq?.layout ?? null}
             content={content}
             onContentChange={handleContentChange}
           />

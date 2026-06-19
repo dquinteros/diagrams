@@ -3,6 +3,7 @@ import { autocompletion } from "@codemirror/autocomplete";
 import { dbmlLanguage } from "./dbmlLanguage";
 import { dbmlFoldService } from "./dbmlFolding";
 import { createDbmlCompletion } from "./dbmlCompletion";
+import { sequenceLanguage } from "./sequenceLanguage";
 import type { DiagramType } from "../../lib/diagramTypes";
 import type { SchemaIR } from "../../types/schema";
 
@@ -21,6 +22,8 @@ export function languageExtensionsFor(
           activateOnTyping: true,
         }),
       ];
+    case "sequence":
+      return [sequenceLanguage];
     default:
       return [];
   }

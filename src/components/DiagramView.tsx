@@ -1,7 +1,9 @@
 import type { SchemaIR } from "../types/schema";
 import type { LayoutResult, DetailLevel } from "../types/layout";
 import type { DiagramType } from "../lib/diagramTypes";
+import type { SeqLayout } from "../lib/sequence/layout";
 import { DiagramCanvas } from "./Diagram/DiagramCanvas";
+import { SequenceCanvas } from "./Sequence/SequenceCanvas";
 import { useTheme } from "../context/ThemeContext";
 
 interface DiagramViewProps {
@@ -16,7 +18,9 @@ interface DiagramViewProps {
   highlightedTable: string | null;
   onNavigateToSource?: (spanRange: [number, number]) => void;
   storageKey: string;
-  // Generic (sequence/bpmn) inputs:
+  // Sequence render input:
+  seqLayout: SeqLayout | null;
+  // Generic (bpmn) inputs:
   content: string;
   onContentChange: (value: string) => void;
 }
@@ -42,7 +46,12 @@ export function DiagramView(props: DiagramViewProps) {
     );
   }
 
-  // Sequence / BPMN renderers are added in later phases.
+  if (props.type === "sequence") {
+    if (!props.seqLayout) return null;
+    return <SequenceCanvas layout={props.seqLayout} storageKey={props.storageKey} />;
+  }
+
+  // BPMN renderer is added in a later phase.
   return (
     <div
       style={{

@@ -6,11 +6,12 @@ interface ZoomControlsProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitToScreen: () => void;
-  rankdir: "LR" | "TB";
-  onToggleRankdir: () => void;
-  detailLevel: DetailLevel;
-  onToggleDetailLevel: () => void;
-  onResetLayout: () => void;
+  // DBML-specific controls (optional so other diagram types can reuse zoom/fit).
+  rankdir?: "LR" | "TB";
+  onToggleRankdir?: () => void;
+  detailLevel?: DetailLevel;
+  onToggleDetailLevel?: () => void;
+  onResetLayout?: () => void;
 }
 
 const DETAIL_LABELS: Record<DetailLevel, string> = {
@@ -109,34 +110,42 @@ export function ZoomControls({
       >
         +
       </button>
-      <div style={{ width: 1, height: 20, backgroundColor: theme.toolbarBorder, margin: "0 2px" }} />
-      <button
-        onClick={onToggleRankdir}
-        style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
-        title={`Layout: ${rankdir === "LR" ? "Left to Right" : "Top to Bottom"}`}
-        onMouseEnter={(e) => hover(e, true)}
-        onMouseLeave={(e) => hover(e, false)}
-      >
-        {rankdir}
-      </button>
-      <button
-        onClick={onToggleDetailLevel}
-        style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
-        title={`Detail: ${DETAIL_LABELS[detailLevel]}`}
-        onMouseEnter={(e) => hover(e, true)}
-        onMouseLeave={(e) => hover(e, false)}
-      >
-        {DETAIL_LABELS[detailLevel]}
-      </button>
-      <button
-        onClick={onResetLayout}
-        style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
-        title="Reset layout (undo manual positioning)"
-        onMouseEnter={(e) => hover(e, true)}
-        onMouseLeave={(e) => hover(e, false)}
-      >
-        Reset
-      </button>
+      {onToggleRankdir && rankdir && (
+        <>
+          <div style={{ width: 1, height: 20, backgroundColor: theme.toolbarBorder, margin: "0 2px" }} />
+          <button
+            onClick={onToggleRankdir}
+            style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
+            title={`Layout: ${rankdir === "LR" ? "Left to Right" : "Top to Bottom"}`}
+            onMouseEnter={(e) => hover(e, true)}
+            onMouseLeave={(e) => hover(e, false)}
+          >
+            {rankdir}
+          </button>
+        </>
+      )}
+      {onToggleDetailLevel && detailLevel && (
+        <button
+          onClick={onToggleDetailLevel}
+          style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
+          title={`Detail: ${DETAIL_LABELS[detailLevel]}`}
+          onMouseEnter={(e) => hover(e, true)}
+          onMouseLeave={(e) => hover(e, false)}
+        >
+          {DETAIL_LABELS[detailLevel]}
+        </button>
+      )}
+      {onResetLayout && (
+        <button
+          onClick={onResetLayout}
+          style={{ ...btnStyle, width: "auto", padding: "0 6px", fontSize: 10 }}
+          title="Reset layout (undo manual positioning)"
+          onMouseEnter={(e) => hover(e, true)}
+          onMouseLeave={(e) => hover(e, false)}
+        >
+          Reset
+        </button>
+      )}
     </div>
   );
 }

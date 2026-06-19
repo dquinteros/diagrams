@@ -90,7 +90,24 @@ export const DIAGRAM_TYPES: Record<DiagramType, DiagramTypeInfo> = {
     label: "Sequence",
     fileExts: ["seq"],
     defaultExt: "seq",
-    defaultContent: "",
+    defaultContent: `sequenceDiagram
+  participant U as User
+  participant A as API
+  participant DB as Database
+
+  U->>+A: POST /login
+  A->>+DB: SELECT user
+  DB-->>-A: row
+  A-->>-U: 200 OK + token
+
+  Note over U,A: token stored client-side
+
+  alt invalid credentials
+    A-->>U: 401 Unauthorized
+  else valid
+    A-->>U: 200 OK
+  end
+`,
     detect: (c) => /^\s*sequenceDiagram\b/m.test(c),
   },
   bpmn: {
@@ -104,7 +121,7 @@ export const DIAGRAM_TYPES: Record<DiagramType, DiagramTypeInfo> = {
 };
 
 /** Types currently exposed in the UI (new-tab picker). */
-export const ENABLED_TYPES: DiagramType[] = ["dbml"];
+export const ENABLED_TYPES: DiagramType[] = ["dbml", "sequence"];
 
 export function typeForExtension(ext: string): DiagramType | null {
   const lower = ext.toLowerCase();
