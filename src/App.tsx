@@ -1,9 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { DbmlEditor, type DbmlEditorHandle } from "./components/Editor/DbmlEditor";
+import { CodeEditor, type CodeEditorHandle } from "./components/Editor/CodeEditor";
+import { languageExtensionsFor } from "./components/Editor/languages";
 import { findTableAtOffset } from "./lib/findTableAtOffset";
-import { DiagramCanvas } from "./components/Diagram/DiagramCanvas";
+import { DiagramView } from "./components/DiagramView";
+import { defaultContentFor, DIAGRAM_TYPES } from "./lib/diagramTypes";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { TabBar } from "./components/Toolbar/TabBar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
@@ -28,70 +30,9 @@ import { useDocuments, type Doc } from "./hooks/useDocuments";
 import { useTheme } from "./context/ThemeContext";
 import type { DetailLevel } from "./types/layout";
 
-const DEFAULT_CONTENT = `// Welcome to Diagrams — a local DBML editor
-// Start typing your schema below
-
-Table users {
-  id integer [pk, increment]
-  username varchar(50) [unique, not null]
-  email varchar(255) [unique, not null]
-  role varchar(20) [default: 'user', check: \`role in ('user','admin')\`]
-  created_at timestamp [default: \`now()\`]
-
-  Note: 'Stores user accounts'
-}
-
-Table posts {
-  id integer [pk, increment]
-  title varchar(255) [not null]
-  body text
-  status varchar(20) [default: 'draft']
-  user_id integer [not null]
-  created_at timestamp [default: \`now()\`]
-}
-
-Table comments {
-  id integer [pk, increment]
-  body text [not null]
-  post_id integer [not null]
-  user_id integer [not null]
-  created_at timestamp [default: \`now()\`]
-}
-
-Table tags {
-  id integer [pk, increment]
-  name varchar(100) [unique, not null]
-}
-
-Table post_tags {
-  post_id integer [not null]
-  tag_id integer [not null]
-
-  indexes {
-    (post_id, tag_id) [unique]
-  }
-}
-
-Ref: posts.user_id > users.id [delete: cascade]
-Ref: comments.post_id > posts.id [delete: cascade]
-Ref: comments.user_id > users.id
-Ref: post_tags.post_id > posts.id [delete: cascade]
-Ref: post_tags.tag_id > tags.id [delete: cascade]
-
-Enum post_status {
-  draft
-  published
-  archived
-}
-
-Note schema_info {
-  'Blog demo schema. Drag tables to rearrange; the layout is saved per file.'
-}
-`;
-
 function App() {
   const { theme } = useTheme();
-  const docs = useDocuments(DEFAULT_CONTENT);
+  const docs = useDocuments(defaultContentFor("dbml"));
   const { activeDoc, activeId } = docs;
   const content = activeDoc.content;
 
@@ -107,13 +48,19 @@ function App() {
     message: string;
     buttons: ConfirmButton[];
   } | null>(null);
-  const editorRef = useRef<DbmlEditorHandle>(null);
+  const editorRef = useRef<CodeEditorHandle>(null);
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { schema, parseError, isLoading } = useDbmlParser(content);
+  // Only DBML uses the Rust parser; other types render client-side.
+  const isDbml = activeDoc.type === "dbml";
+  const { schema, parseError, isLoading } = useDbmlParser(isDbml ? content : "");
   const schemaRef = useRef(schema);
   schemaRef.current = schema;
   const layout = useDiagramLayout(schema, rankdir, detailLevel);
   const fileOps = useFileOperations();
+  const languageExtensions = useMemo(
+    () => languageExtensionsFor(activeDoc.type, schemaRef),
+    [activeDoc.type]
+  );
 
   const [dividerPos, setDividerPos] = useState(40);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
@@ -343,7 +290,7 @@ function App() {
           handleSave();
         } else if (e.key === "t") {
           e.preventDefault();
-          docs.newDoc(DEFAULT_CONTENT);
+          docs.newDoc("dbml", defaultContentFor("dbml"));
         } else if (e.key === "w") {
           e.preventDefault();
           requestCloseDoc(activeId);
@@ -503,8 +450,11 @@ function App() {
       <Toolbar
         parseError={parseError}
         isLoading={isLoading}
-        tableCount={schema?.tables.length ?? 0}
-        refCount={schema?.refs.length ?? 0}
+        stats={
+          isDbml && schema
+            ? `${schema.tables.length} tables, ${schema.refs.length} refs`
+            : DIAGRAM_TYPES[activeDoc.type].label
+        }
         filePath={activeDoc.filePath}
         isDirty={activeDoc.isDirty}
         recentFiles={recentFiles}
@@ -527,7 +477,7 @@ function App() {
         activeId={activeId}
         onSelect={docs.setActive}
         onClose={requestCloseDoc}
-        onNew={() => docs.newDoc(DEFAULT_CONTENT)}
+        onNew={() => docs.newDoc("dbml", defaultContentFor("dbml"))}
       />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div
@@ -538,14 +488,13 @@ function App() {
             flexDirection: "column",
           }}
         >
-          <DbmlEditor
+          <CodeEditor
             ref={editorRef}
             key={`${activeId}-${activeDoc.editorKey}`}
             initialValue={content}
             onChange={handleContentChange}
             onCursorChange={handleCursorChange}
-            parseError={parseError}
-            schemaRef={schemaRef}
+            languageExtensions={languageExtensions}
           />
         </div>
         <div
@@ -567,19 +516,20 @@ function App() {
           }}
         />
         <div style={{ flex: 1, overflow: "hidden" }}>
-          {schema && (
-            <DiagramCanvas
-              schema={schema}
-              layout={layout}
-              rankdir={rankdir}
-              onToggleRankdir={toggleRankdir}
-              detailLevel={detailLevel}
-              onToggleDetailLevel={toggleDetailLevel}
-              highlightedTable={highlightedTable}
-              onNavigateToSource={handleNavigateToSource}
-              storageKey={`${activeDoc.filePath ?? `untitled-${activeId}`}::${rankdir}`}
-            />
-          )}
+          <DiagramView
+            type={activeDoc.type}
+            schema={schema}
+            layout={layout}
+            rankdir={rankdir}
+            onToggleRankdir={toggleRankdir}
+            detailLevel={detailLevel}
+            onToggleDetailLevel={toggleDetailLevel}
+            highlightedTable={highlightedTable}
+            onNavigateToSource={handleNavigateToSource}
+            storageKey={`${activeDoc.filePath ?? `untitled-${activeId}`}::${rankdir}`}
+            content={content}
+            onContentChange={handleContentChange}
+          />
         </div>
       </div>
       {showImportModal && (

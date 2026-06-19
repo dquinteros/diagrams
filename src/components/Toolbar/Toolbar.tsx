@@ -15,8 +15,7 @@ import {
 interface ToolbarProps {
   parseError: ParseError | null;
   isLoading: boolean;
-  tableCount: number;
-  refCount: number;
+  stats: string;
   filePath: string | null;
   isDirty: boolean;
   recentFiles: string[];
@@ -38,8 +37,7 @@ interface ToolbarProps {
 export function Toolbar({
   parseError,
   isLoading,
-  tableCount,
-  refCount,
+  stats,
   filePath,
   isDirty,
   recentFiles,
@@ -98,9 +96,7 @@ export function Toolbar({
         {isDirty ? " *" : ""}
       </span>
       <span style={{ color: theme.toolbarSeparator }}>|</span>
-      <span style={{ color: theme.toolbarTextMuted }}>
-        {tableCount} tables, {refCount} refs
-      </span>
+      <span style={{ color: theme.toolbarTextMuted }}>{stats}</span>
 
       <div style={{ flex: 1 }} />
 

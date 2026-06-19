@@ -1,5 +1,5 @@
 import { useRef, useEffect, useImperativeHandle, forwardRef } from "react";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState, Compartment, type Extension } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -17,12 +17,8 @@ import {
   syntaxHighlighting,
 } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
-import { closeBrackets, closeBracketsKeymap, autocompletion } from "@codemirror/autocomplete";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
-import { dbmlLanguage } from "./dbmlLanguage";
-import type { ParseError, SchemaIR } from "../../types/schema";
-import { createDbmlCompletion } from "./dbmlCompletion";
-import { dbmlFoldService } from "./dbmlFolding";
 import { useTheme } from "../../context/ThemeContext";
 import type { Theme } from "../../lib/themes";
 
@@ -70,31 +66,34 @@ function buildSyntaxTheme(t: Theme) {
     { tag: tags.operator, color: t.syntaxOperator },
     { tag: tags.punctuation, color: t.syntaxBracket },
     { tag: tags.typeName, color: t.syntaxType },
+    { tag: tags.tagName, color: t.syntaxKeyword },
+    { tag: tags.attributeName, color: t.syntaxType },
     { tag: tags.variableName, color: t.syntaxVariable },
   ]);
   return syntaxHighlighting(highlightStyle);
 }
 
-export interface DbmlEditorHandle {
+export interface CodeEditorHandle {
   scrollToOffset: (offset: number) => void;
 }
 
-interface DbmlEditorProps {
+interface CodeEditorProps {
   initialValue: string;
   onChange: (value: string) => void;
   onCursorChange?: (offset: number) => void;
-  parseError: ParseError | null;
-  schemaRef?: React.MutableRefObject<SchemaIR | null>;
+  /** Language-specific extensions (grammar, completion, folding) by diagram type. */
+  languageExtensions: Extension[];
 }
 
-export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(
-  function DbmlEditor({ initialValue, onChange, onCursorChange, schemaRef }, ref) {
+export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
+  function CodeEditor({ initialValue, onChange, onCursorChange, languageExtensions }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
     const onCursorChangeRef = useRef(onCursorChange);
     onCursorChangeRef.current = onCursorChange;
+    const langRef = useRef(languageExtensions);
     const { theme } = useTheme();
     const themeCompartment = useRef(new Compartment());
     const syntaxCompartment = useRef(new Compartment());
@@ -126,14 +125,9 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(
           closeBrackets(),
           highlightActiveLine(),
           highlightSelectionMatches(),
-          dbmlLanguage,
           codeFolding(),
           foldGutter(),
-          dbmlFoldService,
-          autocompletion({
-            override: schemaRef ? [createDbmlCompletion(schemaRef)] : [],
-            activateOnTyping: true,
-          }),
+          ...langRef.current,
           keymap.of([
             ...closeBracketsKeymap,
             ...defaultKeymap,

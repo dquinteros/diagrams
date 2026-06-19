@@ -6,12 +6,14 @@
 // disk on restore.
 
 import type { Doc } from "../hooks/useDocuments";
+import type { DiagramType } from "./diagramTypes";
 
 const SESSION_KEY = "diagrams-session";
 
 export interface PersistedDoc {
   id: string;
   filePath: string | null;
+  type?: DiagramType;
   isDirty: boolean;
   content?: string;
 }
@@ -46,6 +48,7 @@ export function saveSession(docs: Doc[], activeId: string): void {
       docs: docs.map((d) => ({
         id: d.id,
         filePath: d.filePath,
+        type: d.type,
         isDirty: d.isDirty,
         // Keep content only when it cannot be re-read from disk.
         ...(d.isDirty || d.filePath == null ? { content: d.content } : {}),

@@ -1,10 +1,12 @@
 import { useState, useCallback, useRef } from "react";
 import { loadSession } from "../lib/session";
+import { type DiagramType, detectType } from "../lib/diagramTypes";
 
 export interface Doc {
   id: string;
   filePath: string | null;
   content: string;
+  type: DiagramType;
   isDirty: boolean;
   editorKey: number;
   // Restored clean doc whose content must still be read from disk.
@@ -15,7 +17,7 @@ export interface UseDocumentsResult {
   docs: Doc[];
   activeId: string;
   activeDoc: Doc;
-  newDoc: (content?: string) => void;
+  newDoc: (type: DiagramType, content: string) => void;
   openDoc: (filePath: string, content: string) => void;
   closeDoc: (id: string) => void;
   setActive: (id: string) => void;
@@ -32,6 +34,7 @@ function bootstrap(initialContent: string): { docs: Doc[]; activeId: string } {
       id: pd.id,
       filePath: pd.filePath,
       content: pd.content ?? "",
+      type: pd.type ?? detectType(pd.filePath, pd.content ?? ""),
       isDirty: pd.isDirty,
       editorKey: 0,
       // Clean, file-backed docs were saved without content → load from disk.
@@ -43,7 +46,9 @@ function bootstrap(initialContent: string): { docs: Doc[]; activeId: string } {
     return { docs, activeId };
   }
   return {
-    docs: [{ id: "doc-0", filePath: null, content: initialContent, isDirty: false, editorKey: 0 }],
+    docs: [
+      { id: "doc-0", filePath: null, content: initialContent, type: "dbml", isDirty: false, editorKey: 0 },
+    ],
     activeId: "doc-0",
   };
 }
@@ -67,11 +72,11 @@ export function useDocuments(initialContent: string): UseDocumentsResult {
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? docs[0];
 
-  const newDoc = useCallback((content = "") => {
+  const newDoc = useCallback((type: DiagramType, content: string) => {
     const id = makeId();
     setDocs((prev) => [
       ...prev,
-      { id, filePath: null, content, isDirty: false, editorKey: 0 },
+      { id, filePath: null, content, type, isDirty: false, editorKey: 0 },
     ]);
     setActiveId(id);
   }, []);
@@ -87,7 +92,14 @@ export function useDocuments(initialContent: string): UseDocumentsResult {
       setActiveId(id);
       return [
         ...prev,
-        { id, filePath, content, isDirty: false, editorKey: 0 },
+        {
+          id,
+          filePath,
+          content,
+          type: detectType(filePath, content),
+          isDirty: false,
+          editorKey: 0,
+        },
       ];
     });
   }, []);
@@ -100,6 +112,7 @@ export function useDocuments(initialContent: string): UseDocumentsResult {
           id: "doc-0",
           filePath: null,
           content: "",
+          type: "dbml",
           isDirty: false,
           editorKey: prev[0].editorKey + 1,
         };
