@@ -5,7 +5,24 @@ import type { DetailLevel } from "../types/layout";
 const RANKDIR_KEY = "diagrams-rankdir";
 const DETAIL_KEY = "diagrams-detail";
 const RECENT_KEY = "diagrams-recent";
+const AUTOSAVE_KEY = "diagrams-autosave";
 const MAX_RECENT = 10;
+
+export function loadAutosave(): boolean {
+  try {
+    return localStorage.getItem(AUTOSAVE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function saveAutosave(enabled: boolean): void {
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, enabled ? "on" : "off");
+  } catch {
+    // ignore
+  }
+}
 
 export function loadRankdir(): "LR" | "TB" {
   try {

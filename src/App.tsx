@@ -15,12 +15,14 @@ import {
   loadRecentFiles,
   addRecentFile,
   removeRecentFile,
+  loadAutosave,
+  saveAutosave,
 } from "./lib/prefs";
 import { saveSession } from "./lib/session";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
-import { useDocuments } from "./hooks/useDocuments";
+import { useDocuments, type Doc } from "./hooks/useDocuments";
 import { useTheme } from "./context/ThemeContext";
 import type { DetailLevel } from "./types/layout";
 
@@ -96,6 +98,8 @@ function App() {
   const [highlightedTable, setHighlightedTable] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [recentFiles, setRecentFiles] = useState<string[]>(loadRecentFiles);
+  const [autosave, setAutosave] = useState<boolean>(loadAutosave);
+  const [isSaving, setIsSaving] = useState(false);
   const editorRef = useRef<DbmlEditorHandle>(null);
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { schema, parseError, isLoading } = useDbmlParser(content);
@@ -143,13 +147,19 @@ function App() {
     [fileOps, docs, rememberRecent]
   );
 
-  const handleSave = useCallback(async () => {
-    const saved = await fileOps.saveFile(activeDoc.content, activeDoc.filePath);
-    if (saved) {
-      docs.markSaved(activeId, saved);
-      rememberRecent(saved);
-    }
-  }, [fileOps, docs, activeId, activeDoc.content, activeDoc.filePath, rememberRecent]);
+  const saveDoc = useCallback(
+    async (doc: Doc): Promise<string | null> => {
+      const saved = await fileOps.saveFile(doc.content, doc.filePath);
+      if (saved) {
+        docs.markSaved(doc.id, saved);
+        rememberRecent(saved);
+      }
+      return saved;
+    },
+    [fileOps, docs, rememberRecent]
+  );
+
+  const handleSave = useCallback(() => saveDoc(activeDoc), [saveDoc, activeDoc]);
 
   const handleSaveAs = useCallback(async () => {
     const saved = await fileOps.saveFile(activeDoc.content, null);
@@ -300,6 +310,40 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleOpen, handleSave, handleSaveAs, docs, activeId]);
 
+  const toggleAutosave = useCallback(() => {
+    setAutosave((prev) => {
+      saveAutosave(!prev);
+      return !prev;
+    });
+  }, []);
+
+  // Autosave: debounced write of dirty, file-backed docs. "Untitled" buffers have
+  // no path so they're covered by session persistence instead.
+  const autosaveInFlight = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!autosave) return;
+    const pending = docs.docs.filter(
+      (d) => d.filePath && d.isDirty && !autosaveInFlight.current.has(d.id)
+    );
+    if (pending.length === 0) return;
+    const t = setTimeout(async () => {
+      setIsSaving(true);
+      for (const d of pending) {
+        autosaveInFlight.current.add(d.id);
+        try {
+          await fileOps.saveFile(d.content, d.filePath!);
+          docs.markSaved(d.id, d.filePath!);
+        } catch {
+          // Ignore autosave failures; manual save still surfaces errors.
+        } finally {
+          autosaveInFlight.current.delete(d.id);
+        }
+      }
+      setIsSaving(false);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [autosave, docs.docs, docs, fileOps]);
+
   // Persist the open tabs (debounced) so the session survives restarts.
   useEffect(() => {
     const t = setTimeout(() => saveSession(docs.docs, activeId), 500);
@@ -363,8 +407,11 @@ function App() {
         filePath={activeDoc.filePath}
         isDirty={activeDoc.isDirty}
         recentFiles={recentFiles}
+        autosave={autosave}
+        isSaving={isSaving}
         onOpen={handleOpen}
         onOpenRecent={handleOpenRecent}
+        onToggleAutosave={toggleAutosave}
         onSave={handleSave}
         onSaveAs={handleSaveAs}
         onExportSql={handleExportSql}

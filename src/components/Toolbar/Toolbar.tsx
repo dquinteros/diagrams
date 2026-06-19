@@ -12,8 +12,11 @@ interface ToolbarProps {
   filePath: string | null;
   isDirty: boolean;
   recentFiles: string[];
+  autosave: boolean;
+  isSaving: boolean;
   onOpen: () => void;
   onOpenRecent: (path: string) => void;
+  onToggleAutosave: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExportSql: (dialect: string) => void;
@@ -32,8 +35,11 @@ export function Toolbar({
   filePath,
   isDirty,
   recentFiles,
+  autosave,
+  isSaving,
   onOpen,
   onOpenRecent,
+  onToggleAutosave,
   onSave,
   onSaveAs,
   onExportSql,
@@ -89,6 +95,7 @@ export function Toolbar({
 
       <div style={{ flex: 1 }} />
 
+      {isSaving && <span style={{ color: theme.toolbarTextMuted }}>saving…</span>}
       {isLoading && <span style={{ color: theme.warningText }}>parsing...</span>}
       {parseError && (
         <span
@@ -117,6 +124,17 @@ export function Toolbar({
         <RecentMenu files={recentFiles} onOpenRecent={onOpenRecent} />
         <button onClick={onSave} style={btnStyle} title="Save (Cmd+S)">Save</button>
         <button onClick={onSaveAs} style={btnStyle} title="Save As (Cmd+Shift+S)">Save As</button>
+        <button
+          onClick={onToggleAutosave}
+          style={{
+            ...btnStyle,
+            color: autosave ? theme.toolbarAccent : theme.toolbarTextMuted,
+            borderColor: autosave ? theme.toolbarAccent : theme.controlBorder,
+          }}
+          title="Toggle autosave (saved files only)"
+        >
+          Autosave {autosave ? "on" : "off"}
+        </button>
         <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />
         <ExportMenu
           onExportSql={onExportSql}
