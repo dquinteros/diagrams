@@ -1,5 +1,6 @@
 import type { Doc } from "../../hooks/useDocuments";
 import { useTheme } from "../../context/ThemeContext";
+import { IconPlus, IconClose } from "../icons";
 
 interface TabBarProps {
   docs: Doc[];
@@ -65,13 +66,14 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
                 border: "none",
                 color: theme.toolbarTextMuted,
                 cursor: "pointer",
-                fontSize: 14,
-                lineHeight: 1,
+                display: "inline-flex",
+                alignItems: "center",
                 padding: "0 2px",
               }}
               title="Close (Cmd+W)"
+              aria-label="Close tab"
             >
-              ×
+              <IconClose size={14} />
             </button>
           </div>
         );
@@ -83,12 +85,14 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
           border: "none",
           color: theme.toolbarTextMuted,
           cursor: "pointer",
-          fontSize: 16,
+          display: "inline-flex",
+          alignItems: "center",
           padding: "0 12px",
         }}
         title="New tab (Cmd+T)"
+        aria-label="New tab"
       >
-        +
+        <IconPlus size={16} />
       </button>
     </div>
   );

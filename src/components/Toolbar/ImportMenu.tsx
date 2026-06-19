@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { IconImport } from "../icons";
 
 interface ImportMenuProps {
   onImportFile: (dialect: string) => void;
@@ -56,18 +57,21 @@ export function ImportMenu({ onImportFile, onPasteSql }: ImportMenuProps) {
     <div ref={menuRef} style={{ position: "relative" }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        title="Import SQL"
+        aria-label="Import SQL"
         style={{
           background: theme.controlBg,
           border: `1px solid ${theme.controlBorder}`,
           color: theme.controlText,
-          padding: "4px 12px",
+          padding: 6,
           borderRadius: 4,
           cursor: "pointer",
-          fontSize: 12,
-          fontFamily: "monospace",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        Import
+        <IconImport />
       </button>
       {isOpen && (
         <div

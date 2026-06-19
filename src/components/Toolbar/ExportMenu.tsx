@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { IconExport } from "../icons";
 
 interface ExportMenuProps {
   onExportSql: (dialect: string) => void;
@@ -47,18 +48,21 @@ export function ExportMenu({ onExportSql, onExportSvg, onExportPng, onExportPdf 
     <div ref={menuRef} style={{ position: "relative" }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        title="Export SQL / image"
+        aria-label="Export"
         style={{
           background: theme.controlBg,
           border: `1px solid ${theme.controlBorder}`,
           color: theme.controlText,
-          padding: "4px 12px",
+          padding: 6,
           borderRadius: 4,
           cursor: "pointer",
-          fontSize: 12,
-          fontFamily: "monospace",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        Export
+        <IconExport />
       </button>
       {isOpen && (
         <div

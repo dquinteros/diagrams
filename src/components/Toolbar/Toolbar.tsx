@@ -3,6 +3,14 @@ import { ExportMenu } from "./ExportMenu";
 import { ImportMenu } from "./ImportMenu";
 import { RecentMenu } from "./RecentMenu";
 import { useTheme } from "../../context/ThemeContext";
+import {
+  IconSun,
+  IconMoon,
+  IconFolderOpen,
+  IconSave,
+  IconSaveAs,
+  IconAutosave,
+} from "../icons";
 
 interface ToolbarProps {
   parseError: ParseError | null;
@@ -55,15 +63,16 @@ export function Toolbar({
     ? filePath.split("/").pop() ?? "Untitled"
     : "Untitled";
 
-  const btnStyle: React.CSSProperties = {
+  const iconBtnStyle: React.CSSProperties = {
     background: theme.controlBg,
     border: `1px solid ${theme.controlBorder}`,
     color: theme.controlText,
-    padding: "4px 12px",
+    padding: 6,
     borderRadius: 4,
     cursor: "pointer",
-    fontSize: 12,
-    fontFamily: "monospace",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   };
 
   return (
@@ -115,25 +124,33 @@ export function Toolbar({
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <button
           onClick={toggleTheme}
-          style={btnStyle}
+          style={iconBtnStyle}
           title={`Switch to ${themeId === "dark" ? "light" : "dark"} mode`}
+          aria-label="Toggle theme"
         >
-          {themeId === "dark" ? "Light" : "Dark"}
+          {themeId === "dark" ? <IconSun /> : <IconMoon />}
         </button>
-        <button onClick={onOpen} style={btnStyle} title="Open (Cmd+O)">Open</button>
+        <button onClick={onOpen} style={iconBtnStyle} title="Open (Cmd+O)" aria-label="Open file">
+          <IconFolderOpen />
+        </button>
         <RecentMenu files={recentFiles} onOpenRecent={onOpenRecent} />
-        <button onClick={onSave} style={btnStyle} title="Save (Cmd+S)">Save</button>
-        <button onClick={onSaveAs} style={btnStyle} title="Save As (Cmd+Shift+S)">Save As</button>
+        <button onClick={onSave} style={iconBtnStyle} title="Save (Cmd+S)" aria-label="Save">
+          <IconSave />
+        </button>
+        <button onClick={onSaveAs} style={iconBtnStyle} title="Save As (Cmd+Shift+S)" aria-label="Save As">
+          <IconSaveAs />
+        </button>
         <button
           onClick={onToggleAutosave}
           style={{
-            ...btnStyle,
+            ...iconBtnStyle,
             color: autosave ? theme.toolbarAccent : theme.toolbarTextMuted,
             borderColor: autosave ? theme.toolbarAccent : theme.controlBorder,
           }}
-          title="Toggle autosave (saved files only)"
+          title={`Autosave ${autosave ? "on" : "off"} (saved files only)`}
+          aria-label="Toggle autosave"
         >
-          Autosave {autosave ? "on" : "off"}
+          <IconAutosave />
         </button>
         <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />
         <ExportMenu

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "../../context/ThemeContext";
+import { IconClock } from "../icons";
 
 interface RecentMenuProps {
   files: string[];
@@ -26,20 +27,22 @@ export function RecentMenu({ files, onOpenRecent }: RecentMenuProps) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={files.length === 0}
+        aria-label="Open recent files"
         style={{
           background: theme.controlBg,
           border: `1px solid ${theme.controlBorder}`,
           color: theme.controlText,
-          padding: "4px 12px",
+          padding: 6,
           borderRadius: 4,
           cursor: files.length === 0 ? "not-allowed" : "pointer",
           opacity: files.length === 0 ? 0.5 : 1,
-          fontSize: 12,
-          fontFamily: "monospace",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
         title="Open recent files"
       >
-        Recent
+        <IconClock />
       </button>
       {isOpen && files.length > 0 && (
         <div
