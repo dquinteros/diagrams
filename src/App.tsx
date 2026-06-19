@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DbmlEditor, type DbmlEditorHandle } from "./components/Editor/DbmlEditor";
 import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { DiagramCanvas } from "./components/Diagram/DiagramCanvas";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { TabBar } from "./components/Toolbar/TabBar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
+import { ConfirmDialog, type ConfirmButton } from "./components/ConfirmDialog";
 import { exportSvg, exportPng, exportPdf } from "./lib/exportImage";
 import {
   loadRankdir,
@@ -100,6 +102,11 @@ function App() {
   const [recentFiles, setRecentFiles] = useState<string[]>(loadRecentFiles);
   const [autosave, setAutosave] = useState<boolean>(loadAutosave);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    message: string;
+    buttons: ConfirmButton[];
+  } | null>(null);
   const editorRef = useRef<DbmlEditorHandle>(null);
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { schema, parseError, isLoading } = useDbmlParser(content);
@@ -168,6 +175,43 @@ function App() {
       rememberRecent(saved);
     }
   }, [fileOps, docs, activeId, activeDoc.content, rememberRecent]);
+
+  // Close a tab, confirming first if it has unsaved changes.
+  const requestCloseDoc = useCallback(
+    (id: string) => {
+      const doc = docs.docs.find((d) => d.id === id);
+      if (!doc || !doc.isDirty) {
+        docs.closeDoc(id);
+        return;
+      }
+      const label = doc.filePath ? doc.filePath.split("/").pop() : "Untitled";
+      setConfirm({
+        title: "Unsaved changes",
+        message: `"${label}" has unsaved changes. Save before closing?`,
+        buttons: [
+          {
+            label: "Save",
+            variant: "primary",
+            onClick: async () => {
+              setConfirm(null);
+              const saved = await saveDoc(doc);
+              if (saved) docs.closeDoc(id);
+            },
+          },
+          {
+            label: "Don't save",
+            variant: "danger",
+            onClick: () => {
+              setConfirm(null);
+              docs.closeDoc(id);
+            },
+          },
+          { label: "Cancel", onClick: () => setConfirm(null) },
+        ],
+      });
+    },
+    [docs, saveDoc]
+  );
 
   const handleExportSql = useCallback(
     async (dialect: string) => {
@@ -302,13 +346,13 @@ function App() {
           docs.newDoc(DEFAULT_CONTENT);
         } else if (e.key === "w") {
           e.preventDefault();
-          docs.closeDoc(activeId);
+          requestCloseDoc(activeId);
         }
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleOpen, handleSave, handleSaveAs, docs, activeId]);
+  }, [handleOpen, handleSave, handleSaveAs, requestCloseDoc, docs, activeId]);
 
   const toggleAutosave = useCallback(() => {
     setAutosave((prev) => {
@@ -349,6 +393,63 @@ function App() {
     const t = setTimeout(() => saveSession(docs.docs, activeId), 500);
     return () => clearTimeout(t);
   }, [docs.docs, activeId]);
+
+  // Latest docs / saveDoc for the once-registered window-close listener.
+  const docsRef = useRef(docs.docs);
+  const saveDocRef = useRef(saveDoc);
+  useEffect(() => {
+    docsRef.current = docs.docs;
+    saveDocRef.current = saveDoc;
+  }, [docs.docs, saveDoc]);
+
+  // Intercept the app window close to confirm unsaved changes.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const win = getCurrentWindow();
+    win
+      .onCloseRequested((event) => {
+        const dirty = docsRef.current.filter((d) => d.isDirty);
+        if (dirty.length === 0) return; // nothing unsaved → allow close
+        event.preventDefault();
+        setConfirm({
+          title: "Unsaved changes",
+          message: `You have ${dirty.length} document(s) with unsaved changes.`,
+          buttons: [
+            {
+              label: "Save all",
+              variant: "primary",
+              onClick: async () => {
+                for (const d of dirty) {
+                  const saved = await saveDocRef.current(d);
+                  if (!saved) {
+                    // A save dialog was cancelled → abort the close.
+                    setConfirm(null);
+                    return;
+                  }
+                }
+                setConfirm(null);
+                await win.destroy();
+              },
+            },
+            {
+              label: "Discard",
+              variant: "danger",
+              onClick: async () => {
+                setConfirm(null);
+                await win.destroy();
+              },
+            },
+            { label: "Cancel", onClick: () => setConfirm(null) },
+          ],
+        });
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   // On startup, hydrate restored clean docs by reading their files from disk.
   useEffect(() => {
@@ -425,7 +526,7 @@ function App() {
         docs={docs.docs}
         activeId={activeId}
         onSelect={docs.setActive}
-        onClose={docs.closeDoc}
+        onClose={requestCloseDoc}
         onNew={() => docs.newDoc(DEFAULT_CONTENT)}
       />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
@@ -485,6 +586,14 @@ function App() {
         <ImportSqlModal
           onImport={handleImportSqlConfirm}
           onClose={() => setShowImportModal(false)}
+        />
+      )}
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.title}
+          message={confirm.message}
+          buttons={confirm.buttons}
+          onClose={() => setConfirm(null)}
         />
       )}
     </div>
