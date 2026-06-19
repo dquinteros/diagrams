@@ -371,6 +371,8 @@ function App() {
 
   // Intercept the app window close to confirm unsaved changes.
   useEffect(() => {
+    // Tauri-only API; skip when running in a plain browser.
+    if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
     const win = getCurrentWindow();
     win
