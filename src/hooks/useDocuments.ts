@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { loadSession } from "../lib/session";
 
 export interface Doc {
   id: string;
@@ -6,6 +7,8 @@ export interface Doc {
   content: string;
   isDirty: boolean;
   editorKey: number;
+  // Restored clean doc whose content must still be read from disk.
+  needsLoad?: boolean;
 }
 
 export interface UseDocumentsResult {
@@ -19,22 +22,48 @@ export interface UseDocumentsResult {
   updateContent: (id: string, content: string) => void;
   replaceContent: (id: string, content: string) => void;
   markSaved: (id: string, filePath: string) => void;
+  hydrateDoc: (id: string, content: string) => void;
+}
+
+function bootstrap(initialContent: string): { docs: Doc[]; activeId: string } {
+  const session = loadSession();
+  if (session) {
+    const docs: Doc[] = session.docs.map((pd) => ({
+      id: pd.id,
+      filePath: pd.filePath,
+      content: pd.content ?? "",
+      isDirty: pd.isDirty,
+      editorKey: 0,
+      // Clean, file-backed docs were saved without content → load from disk.
+      needsLoad: pd.content === undefined && pd.filePath != null,
+    }));
+    const activeId = docs.some((d) => d.id === session.activeId)
+      ? session.activeId
+      : docs[0].id;
+    return { docs, activeId };
+  }
+  return {
+    docs: [{ id: "doc-0", filePath: null, content: initialContent, isDirty: false, editorKey: 0 }],
+    activeId: "doc-0",
+  };
+}
+
+function nextCounter(docs: Doc[]): number {
+  let max = 0;
+  for (const d of docs) {
+    const m = /^doc-(\d+)$/.exec(d.id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max + 1;
 }
 
 export function useDocuments(initialContent: string): UseDocumentsResult {
-  const counterRef = useRef(1);
+  const initial = useRef(bootstrap(initialContent));
+  const counterRef = useRef(nextCounter(initial.current.docs));
   const makeId = () => `doc-${counterRef.current++}`;
 
-  const [docs, setDocs] = useState<Doc[]>(() => [
-    {
-      id: "doc-0",
-      filePath: null,
-      content: initialContent,
-      isDirty: false,
-      editorKey: 0,
-    },
-  ]);
-  const [activeId, setActiveId] = useState("doc-0");
+  const [docs, setDocs] = useState<Doc[]>(initial.current.docs);
+  const [activeId, setActiveId] = useState(initial.current.activeId);
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? docs[0];
 
@@ -114,6 +143,17 @@ export function useDocuments(initialContent: string): UseDocumentsResult {
     );
   }, []);
 
+  // Fill in a restored doc's content read from disk (keeps it clean).
+  const hydrateDoc = useCallback((id: string, content: string) => {
+    setDocs((prev) =>
+      prev.map((d) =>
+        d.id === id
+          ? { ...d, content, isDirty: false, needsLoad: false, editorKey: d.editorKey + 1 }
+          : d
+      )
+    );
+  }, []);
+
   return {
     docs,
     activeId,
@@ -125,5 +165,6 @@ export function useDocuments(initialContent: string): UseDocumentsResult {
     updateContent,
     replaceContent,
     markSaved,
+    hydrateDoc,
   };
 }

@@ -16,6 +16,7 @@ import {
   addRecentFile,
   removeRecentFile,
 } from "./lib/prefs";
+import { saveSession } from "./lib/session";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
@@ -298,6 +299,31 @@ function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleOpen, handleSave, handleSaveAs, docs, activeId]);
+
+  // Persist the open tabs (debounced) so the session survives restarts.
+  useEffect(() => {
+    const t = setTimeout(() => saveSession(docs.docs, activeId), 500);
+    return () => clearTimeout(t);
+  }, [docs.docs, activeId]);
+
+  // On startup, hydrate restored clean docs by reading their files from disk.
+  useEffect(() => {
+    const restored = docs.docs.filter((d) => d.needsLoad && d.filePath);
+    if (restored.length === 0) return;
+    (async () => {
+      for (const d of restored) {
+        try {
+          const c = await fileOps.readFile(d.filePath!);
+          docs.hydrateDoc(d.id, c ?? "");
+        } catch {
+          docs.closeDoc(d.id);
+          setRecentFiles(removeRecentFile(d.filePath!));
+        }
+      }
+    })();
+    // Run once on mount against the restored snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDividerMouseDown = useCallback(() => {
     setIsDraggingDivider(true);
