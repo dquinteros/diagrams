@@ -401,7 +401,7 @@ function App() {
               onToggleDetailLevel={toggleDetailLevel}
               highlightedTable={highlightedTable}
               onNavigateToSource={handleNavigateToSource}
-              storageKey={activeDoc.filePath ?? `untitled-${activeId}`}
+              storageKey={`${activeDoc.filePath ?? `untitled-${activeId}`}::${rankdir}`}
             />
           )}
         </div>
