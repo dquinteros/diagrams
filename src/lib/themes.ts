@@ -101,7 +101,7 @@ export const darkTheme: Theme = {
   syntaxKeyword: "#cba6f7",
   syntaxString: "#a6e3a1",
   syntaxNumber: "#fab387",
-  syntaxComment: "#6c7086",
+  syntaxComment: "#9399b2",
   syntaxOperator: "#89b4fa",
   syntaxBracket: "#585b70",
   syntaxType: "#f9e2af",
