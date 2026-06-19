@@ -119,6 +119,37 @@ interface RawEdge {
   ref: SchemaIR["refs"][number];
   from: Endpoint;
   to: Endpoint;
+  midX: number;
+}
+
+const ROUTE_GAP = 36; // detour distance when tables overlap horizontally
+
+/**
+ * Pick the exit/enter sides and the horizontal mid-line for an edge.
+ * - Tables clearly apart: connect on the facing sides, mid-line in the gap.
+ * - Tables that overlap in X: exit BOTH on the same outer side and route the
+ *   mid-line outside the boxes, so the connector never tunnels through a table.
+ */
+function chooseRouting(
+  from: LayoutNode,
+  to: LayoutNode
+): { fromSide: "left" | "right"; toSide: "left" | "right"; midX: number } {
+  const fL = from.x;
+  const fR = from.x + from.width;
+  const tL = to.x;
+  const tR = to.x + to.width;
+
+  if (tL >= fR) {
+    return { fromSide: "right", toSide: "left", midX: (fR + tL) / 2 };
+  }
+  if (fL >= tR) {
+    return { fromSide: "left", toSide: "right", midX: (fL + tR) / 2 };
+  }
+  // Horizontal overlap: route around on the side the tables lean toward.
+  const leanRight = to.x + to.width / 2 >= from.x + from.width / 2;
+  return leanRight
+    ? { fromSide: "right", toSide: "right", midX: Math.max(fR, tR) + ROUTE_GAP }
+    : { fromSide: "left", toSide: "left", midX: Math.min(fL, tL) - ROUTE_GAP };
 }
 
 /**
@@ -212,14 +243,12 @@ function buildEdges(
     const fromTable = schema.tables.find((t) => t.name === ref.fromTable)!;
     const toTable = schema.tables.find((t) => t.name === ref.toTable)!;
 
-    // Connect on the sides facing each other so edges never loop awkwardly.
-    const exitRight = toNode.x + toNode.width / 2 >= fromNode.x + fromNode.width / 2;
-    const fromSide: "left" | "right" = exitRight ? "right" : "left";
-    const toSide: "left" | "right" = exitRight ? "left" : "right";
+    // Connect on facing sides (or route outside when the boxes overlap in X).
+    const { fromSide, toSide, midX } = chooseRouting(fromNode, toNode);
 
     const from = makeEndpoint(fromNode, fromTable, schema, detailLevel, ref.fromColumns[0] || "", fromSide);
     const to = makeEndpoint(toNode, toTable, schema, detailLevel, ref.toColumns[0] || "", toSide);
-    raw.push({ ref, from, to });
+    raw.push({ ref, from, to, midX });
     endpoints.push(from, to);
   }
 
@@ -227,8 +256,7 @@ function buildEdges(
   distributeEndpoints(endpoints);
 
   // Build the orthogonal elbow path from the resolved endpoints.
-  return raw.map(({ ref, from, to }) => {
-    const midX = (from.x + to.x) / 2;
+  return raw.map(({ ref, from, to, midX }) => {
     return {
       from: ref.fromTable,
       to: ref.toTable,
