@@ -31,9 +31,12 @@ function buildEditorTheme(t: Theme) {
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
     },
     ".cm-cursor": { borderLeftColor: t.editorCaret },
-    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
-      backgroundColor: t.editorSelection,
-    },
+    // High specificity + !important so CodeMirror's default light selection
+    // (#d7d4f0) doesn't win in dark mode.
+    "&.cm-focused .cm-selectionBackground, & .cm-selectionBackground, .cm-selectionBackground, & .cm-content ::selection":
+      {
+        backgroundColor: `${t.editorSelection} !important`,
+      },
     ".cm-gutters": {
       backgroundColor: t.editorGutterBg,
       color: t.editorGutterText,
