@@ -17,6 +17,10 @@ export interface Theme {
   enumBg: string;
   enumHeader: string;
   enumLabel: string;
+  noteBg: string;
+  noteBorder: string;
+  noteTitle: string;
+  noteText: string;
   groupBg: string;
   groupBorder: string;
   toolbarBg: string;
@@ -71,6 +75,10 @@ export const darkTheme: Theme = {
   enumBg: "#1e1e2e",
   enumHeader: "#45475a",
   enumLabel: "#a6e3a1",
+  noteBg: "#3b3a2a",
+  noteBorder: "#cba6f7",
+  noteTitle: "#f9e2af",
+  noteText: "#e6e0c8",
   groupBg: "rgba(88, 91, 112, 0.1)",
   groupBorder: "#45475a",
   toolbarBg: "#181825",
@@ -93,7 +101,7 @@ export const darkTheme: Theme = {
   syntaxKeyword: "#cba6f7",
   syntaxString: "#a6e3a1",
   syntaxNumber: "#fab387",
-  syntaxComment: "#6c7086",
+  syntaxComment: "#9399b2",
   syntaxOperator: "#89b4fa",
   syntaxBracket: "#585b70",
   syntaxType: "#f9e2af",
@@ -125,6 +133,10 @@ export const lightTheme: Theme = {
   enumBg: "#eff1f5",
   enumHeader: "#ccd0da",
   enumLabel: "#40a02b",
+  noteBg: "#fdf6d3",
+  noteBorder: "#df8e1d",
+  noteTitle: "#8839ef",
+  noteText: "#4c4f69",
   groupBg: "rgba(156, 160, 176, 0.12)",
   groupBorder: "#bcc0cc",
   toolbarBg: "#dce0e8",

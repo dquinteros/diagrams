@@ -1,4 +1,5 @@
 use crate::parser::convert::{self, ParseError, SchemaIR};
+use crate::parser::preprocess;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -9,9 +10,11 @@ pub struct ParseResult {
 
 #[tauri::command]
 pub fn parse_dbml(input: String) -> ParseResult {
-    match dbml_rs::parse_dbml(&input) {
+    let (cleaned, sticky_notes) = preprocess::preprocess(&input);
+    match dbml_rs::parse_dbml(&cleaned) {
         Ok(ast) => {
-            let schema = convert::convert_schema(&ast);
+            let mut schema = convert::convert_schema(&ast);
+            schema.notes.extend(sticky_notes);
             ParseResult {
                 schema: Some(schema),
                 error: None,

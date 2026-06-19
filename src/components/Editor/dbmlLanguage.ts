@@ -1,13 +1,16 @@
 import { StreamLanguage, StringStream } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 
 const KEYWORDS = new Set([
   "table",
+  "tablepartial",
   "ref",
   "enum",
   "indexes",
   "project",
   "tablegroup",
   "note",
+  "check",
   "as",
   "null",
   "not",
@@ -154,5 +157,17 @@ export const dbmlLanguage = StreamLanguage.define<DbmlState>({
   token: tokenize,
   languageData: {
     commentTokens: { line: "//" },
+  },
+  // Map our token names to highlight tags so a HighlightStyle can color them.
+  tokenTable: {
+    keyword: tags.keyword,
+    string: tags.string,
+    "string-2": tags.special(tags.string),
+    comment: tags.lineComment,
+    number: tags.number,
+    operator: tags.operator,
+    bracket: tags.punctuation,
+    typeName: tags.typeName,
+    variableName: tags.variableName,
   },
 });

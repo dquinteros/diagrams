@@ -1,6 +1,16 @@
 import type { ParseError } from "../../types/schema";
 import { ExportMenu } from "./ExportMenu";
+import { ImportMenu } from "./ImportMenu";
+import { RecentMenu } from "./RecentMenu";
 import { useTheme } from "../../context/ThemeContext";
+import {
+  IconSun,
+  IconMoon,
+  IconFolderOpen,
+  IconSave,
+  IconSaveAs,
+  IconAutosave,
+} from "../icons";
 
 interface ToolbarProps {
   parseError: ParseError | null;
@@ -9,11 +19,20 @@ interface ToolbarProps {
   refCount: number;
   filePath: string | null;
   isDirty: boolean;
+  recentFiles: string[];
+  autosave: boolean;
+  isSaving: boolean;
   onOpen: () => void;
+  onOpenRecent: (path: string) => void;
+  onToggleAutosave: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExportSql: (dialect: string) => void;
   onExportSvg: () => void;
+  onExportPng: () => void;
+  onExportPdf: () => void;
+  onImportFile: (dialect: string) => void;
+  onPasteSql: () => void;
 }
 
 export function Toolbar({
@@ -23,11 +42,20 @@ export function Toolbar({
   refCount,
   filePath,
   isDirty,
+  recentFiles,
+  autosave,
+  isSaving,
   onOpen,
+  onOpenRecent,
+  onToggleAutosave,
   onSave,
   onSaveAs,
   onExportSql,
   onExportSvg,
+  onExportPng,
+  onExportPdf,
+  onImportFile,
+  onPasteSql,
 }: ToolbarProps) {
   const { theme, themeId, toggleTheme } = useTheme();
 
@@ -35,15 +63,16 @@ export function Toolbar({
     ? filePath.split("/").pop() ?? "Untitled"
     : "Untitled";
 
-  const btnStyle: React.CSSProperties = {
+  const iconBtnStyle: React.CSSProperties = {
     background: theme.controlBg,
     border: `1px solid ${theme.controlBorder}`,
     color: theme.controlText,
-    padding: "4px 12px",
+    padding: 6,
     borderRadius: 4,
     cursor: "pointer",
-    fontSize: 12,
-    fontFamily: "monospace",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   };
 
   return (
@@ -75,6 +104,7 @@ export function Toolbar({
 
       <div style={{ flex: 1 }} />
 
+      {isSaving && <span style={{ color: theme.toolbarTextMuted }}>saving…</span>}
       {isLoading && <span style={{ color: theme.warningText }}>parsing...</span>}
       {parseError && (
         <span
@@ -94,15 +124,41 @@ export function Toolbar({
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <button
           onClick={toggleTheme}
-          style={btnStyle}
+          style={iconBtnStyle}
           title={`Switch to ${themeId === "dark" ? "light" : "dark"} mode`}
+          aria-label="Toggle theme"
         >
-          {themeId === "dark" ? "Light" : "Dark"}
+          {themeId === "dark" ? <IconSun /> : <IconMoon />}
         </button>
-        <button onClick={onOpen} style={btnStyle} title="Open (Cmd+O)">Open</button>
-        <button onClick={onSave} style={btnStyle} title="Save (Cmd+S)">Save</button>
-        <button onClick={onSaveAs} style={btnStyle} title="Save As (Cmd+Shift+S)">Save As</button>
-        <ExportMenu onExportSql={onExportSql} onExportSvg={onExportSvg} />
+        <button onClick={onOpen} style={iconBtnStyle} title="Open (Cmd+O)" aria-label="Open file">
+          <IconFolderOpen />
+        </button>
+        <RecentMenu files={recentFiles} onOpenRecent={onOpenRecent} />
+        <button onClick={onSave} style={iconBtnStyle} title="Save (Cmd+S)" aria-label="Save">
+          <IconSave />
+        </button>
+        <button onClick={onSaveAs} style={iconBtnStyle} title="Save As (Cmd+Shift+S)" aria-label="Save As">
+          <IconSaveAs />
+        </button>
+        <button
+          onClick={onToggleAutosave}
+          style={{
+            ...iconBtnStyle,
+            color: autosave ? theme.toolbarAccent : theme.toolbarTextMuted,
+            borderColor: autosave ? theme.toolbarAccent : theme.controlBorder,
+          }}
+          title={`Autosave ${autosave ? "on" : "off"} (saved files only)`}
+          aria-label="Toggle autosave"
+        >
+          <IconAutosave />
+        </button>
+        <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />
+        <ExportMenu
+          onExportSql={onExportSql}
+          onExportSvg={onExportSvg}
+          onExportPng={onExportPng}
+          onExportPdf={onExportPdf}
+        />
       </div>
     </div>
   );

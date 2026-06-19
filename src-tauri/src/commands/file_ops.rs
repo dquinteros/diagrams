@@ -34,6 +34,36 @@ pub async fn open_file(app: tauri::AppHandle) -> Result<Option<FileResult>, Stri
 }
 
 #[tauri::command]
+pub async fn read_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))
+}
+
+#[tauri::command]
+pub async fn open_sql_file(app: tauri::AppHandle) -> Result<Option<FileResult>, String> {
+    let file = app
+        .dialog()
+        .file()
+        .add_filter("SQL files", &["sql"])
+        .add_filter("All files", &["*"])
+        .blocking_pick_file();
+
+    match file {
+        Some(file_path) => {
+            let path_buf = file_path
+                .into_path()
+                .map_err(|e| format!("Invalid path: {}", e))?;
+            let content = fs::read_to_string(&path_buf)
+                .map_err(|e| format!("Failed to read file: {}", e))?;
+            Ok(Some(FileResult {
+                path: path_buf.to_string_lossy().to_string(),
+                content,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
 pub async fn save_file(
     app: tauri::AppHandle,
     content: String,

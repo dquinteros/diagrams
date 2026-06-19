@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import type { SchemaIR } from "../../types/schema";
 import type { LayoutResult, DetailLevel } from "../../types/layout";
 import { useViewTransform } from "../../hooks/useViewTransform";
@@ -7,10 +7,12 @@ import { useTheme } from "../../context/ThemeContext";
 import { TableNode } from "./TableNode";
 import { RelationshipEdge } from "./RelationshipEdge";
 import { EnumNode } from "./EnumNode";
+import { StickyNoteNode } from "./StickyNoteNode";
 import { ZoomControls } from "./ZoomControls";
 import { Tooltip } from "./Tooltip";
 import { TableGroupRect } from "./TableGroupRect";
 import { SearchBar } from "./SearchBar";
+import { MiniMap } from "./MiniMap";
 
 interface HoverInfo {
   tableName: string;
@@ -28,6 +30,7 @@ interface DiagramCanvasProps {
   onToggleDetailLevel: () => void;
   highlightedTable: string | null;
   onNavigateToSource?: (spanRange: [number, number]) => void;
+  storageKey: string;
 }
 
 const DRAG_THRESHOLD = 5;
@@ -41,11 +44,13 @@ export function DiagramCanvas({
   onToggleDetailLevel,
   highlightedTable,
   onNavigateToSource,
+  storageKey,
 }: DiagramCanvasProps) {
   const { theme } = useTheme();
-  const vt = useViewTransform(layout);
-  const np = useNodePositions(layout, schema);
+  const vt = useViewTransform(layout, storageKey);
+  const np = useNodePositions(layout, schema, storageKey, detailLevel);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<number | null>(null);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
   const dragStateRef = useRef<{
@@ -84,6 +89,7 @@ export function DiagramCanvas({
           (e.target as Element).classList.contains("canvas-bg")
         ) {
           setSelectedTable(null);
+          setSelectedEdge(null);
         }
       }
     },
@@ -111,6 +117,7 @@ export function DiagramCanvas({
     if (ds) {
       if (!ds.moved) {
         setSelectedTable(ds.tableName);
+        setSelectedEdge(null);
       }
       dragStateRef.current = null;
       np.endDrag();
@@ -118,11 +125,42 @@ export function DiagramCanvas({
     vt.handleMouseUp();
   }, [vt, np]);
 
+  const handleEdgeSelect = useCallback((index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedEdge(index);
+    setSelectedTable(null);
+  }, []);
+
   const activeTable = selectedTable ?? highlightedTable;
 
   const cursor = np.isDragging ? "move" : vt.isPanning ? "grabbing" : "grab";
 
   const tooltipContent = getTooltipContent(schema, hoverInfo);
+
+  // The table whose relationships are emphasized: live hover takes priority,
+  // otherwise the persistently selected table. Disabled while dragging.
+  const hoveredTable = np.isDragging ? null : hoverInfo?.tableName ?? null;
+  const focusTable = hoveredTable ?? selectedTable;
+
+  // Tables that stay fully visible: the focused table + its direct neighbours,
+  // or the endpoints of a selected relationship.
+  const relatedTables = useMemo(() => {
+    if (focusTable) {
+      const related = new Set<string>([focusTable]);
+      for (const ref of schema.refs) {
+        if (ref.fromTable === focusTable) related.add(ref.toTable);
+        if (ref.toTable === focusTable) related.add(ref.fromTable);
+      }
+      return related;
+    }
+    if (selectedEdge != null) {
+      const edge = np.edges[selectedEdge];
+      if (edge) return new Set<string>([edge.from, edge.to]);
+    }
+    return null;
+  }, [focusTable, selectedEdge, schema.refs, np.edges]);
+
+  const hasFocus = focusTable != null || selectedEdge != null;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -142,9 +180,21 @@ export function DiagramCanvas({
           {schema.tableGroups.map((group) => (
             <TableGroupRect key={group.name} group={group} nodes={np.nodes} />
           ))}
-          {np.edges.map((edge, i) => (
-            <RelationshipEdge key={`${edge.from}-${edge.to}-${i}`} edge={edge} />
-          ))}
+          {np.edges.map((edge, i) => {
+            const connectedToTable =
+              focusTable != null && (edge.from === focusTable || edge.to === focusTable);
+            const isActive = connectedToTable || selectedEdge === i;
+            return (
+              <RelationshipEdge
+                key={`${edge.from}-${edge.to}-${i}`}
+                edge={edge}
+                isDimmed={hasFocus && !isActive}
+                isHighlighted={isActive}
+                isAnimated={isActive}
+                onSelect={(e) => handleEdgeSelect(i, e)}
+              />
+            );
+          })}
           {schema.tables.map((table) => {
             const nodeLayout = np.nodes.get(table.name);
             if (!nodeLayout) return null;
@@ -155,7 +205,7 @@ export function DiagramCanvas({
                 layout={nodeLayout}
                 schema={schema}
                 isSelected={activeTable === table.name}
-                onSelect={setSelectedTable}
+                isDimmed={relatedTables != null && !relatedTables.has(table.name)}
                 onDragStart={handleTableDragStart}
                 onNavigateToSource={onNavigateToSource}
                 onHover={setHoverInfo}
@@ -172,6 +222,21 @@ export function DiagramCanvas({
                 enumBlock={enumBlock}
                 layout={nodeLayout}
                 detailLevel={detailLevel}
+                onDragStart={handleTableDragStart}
+                onNavigateToSource={onNavigateToSource}
+              />
+            );
+          })}
+          {schema.notes.map((note, i) => {
+            const nodeLayout = np.nodes.get(`note_${i}`);
+            if (!nodeLayout) return null;
+            return (
+              <StickyNoteNode
+                key={`note_${i}`}
+                note={note}
+                layout={nodeLayout}
+                onDragStart={handleTableDragStart}
+                onNavigateToSource={onNavigateToSource}
               />
             );
           })}
@@ -194,6 +259,14 @@ export function DiagramCanvas({
         onNavigateToTable={vt.panToNode}
         onHighlight={setSelectedTable}
       />
+      <MiniMap
+        nodes={np.nodes}
+        diagramWidth={layout.width}
+        diagramHeight={layout.height}
+        transform={vt.transform}
+        setTransform={vt.setTransform}
+        svgRef={vt.svgRef}
+      />
       {tooltipContent && hoverInfo && (
         <Tooltip x={hoverInfo.x} y={hoverInfo.y} content={tooltipContent} />
       )}
@@ -209,11 +282,14 @@ function getTooltipContent(schema: SchemaIR, hover: HoverInfo | null): string | 
   if (hover.columnName) {
     const col = table.columns.find((c) => c.name === hover.columnName);
     if (!col) return null;
+    const parts: string[] = [];
     const enumDef = schema.enums.find((e) => e.name === col.type);
     if (enumDef) {
-      return `enum ${enumDef.name}:\n${enumDef.values.map((v) => `  ${v.name}`).join("\n")}`;
+      parts.push(`enum ${enumDef.name}:\n${enumDef.values.map((v) => `  ${v.name}`).join("\n")}`);
     }
-    return col.note ?? null;
+    if (col.note) parts.push(col.note);
+    if (col.check) parts.push(`check: ${col.check}`);
+    return parts.length > 0 ? parts.join("\n") : null;
   }
 
   return table.note ?? null;

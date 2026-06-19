@@ -37,6 +37,19 @@ export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
       >
         {column.name}
       </text>
+      {column.check && (
+        <text
+          x={12 + column.name.length * 7 + 4}
+          y={textY}
+          dominantBaseline="central"
+          fill={theme.uniqueBadge}
+          fontSize={9}
+          fontWeight="bold"
+        >
+          ✓
+          <title>{`check: ${column.check}`}</title>
+        </text>
+      )}
       <text
         x={TABLE_WIDTH - 12}
         y={textY}

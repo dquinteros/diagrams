@@ -8,7 +8,15 @@ import {
   highlightActiveLine,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { bracketMatching, indentOnInput, foldGutter, codeFolding } from "@codemirror/language";
+import {
+  bracketMatching,
+  indentOnInput,
+  foldGutter,
+  codeFolding,
+  HighlightStyle,
+  syntaxHighlighting,
+} from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 import { closeBrackets, closeBracketsKeymap, autocompletion } from "@codemirror/autocomplete";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { dbmlLanguage } from "./dbmlLanguage";
@@ -23,6 +31,7 @@ function buildEditorTheme(t: Theme) {
     "&": { height: "100%", fontSize: "14px", backgroundColor: t.editorBg },
     ".cm-content": {
       caretColor: t.editorCaret,
+      color: t.syntaxVariable,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
     },
     ".cm-cursor": { borderLeftColor: t.editorCaret },
@@ -51,17 +60,19 @@ function buildEditorTheme(t: Theme) {
 }
 
 function buildSyntaxTheme(t: Theme) {
-  return EditorView.theme({
-    ".ͼb": { color: t.syntaxKeyword },
-    ".ͼd": { color: t.syntaxString },
-    ".ͼi": { color: t.syntaxString },
-    ".ͼe": { color: t.syntaxNumber },
-    ".ͼc": { color: t.syntaxComment },
-    ".ͼ7": { color: t.syntaxOperator },
-    ".ͼ8": { color: t.syntaxBracket },
-    ".ͼf": { color: t.syntaxType },
-    ".ͼ9": { color: t.syntaxVariable },
-  });
+  const highlightStyle = HighlightStyle.define([
+    { tag: tags.lineComment, color: t.syntaxComment, fontStyle: "italic" },
+    { tag: tags.comment, color: t.syntaxComment, fontStyle: "italic" },
+    { tag: tags.keyword, color: t.syntaxKeyword },
+    { tag: tags.string, color: t.syntaxString },
+    { tag: tags.special(tags.string), color: t.syntaxString },
+    { tag: tags.number, color: t.syntaxNumber },
+    { tag: tags.operator, color: t.syntaxOperator },
+    { tag: tags.punctuation, color: t.syntaxBracket },
+    { tag: tags.typeName, color: t.syntaxType },
+    { tag: tags.variableName, color: t.syntaxVariable },
+  ]);
+  return syntaxHighlighting(highlightStyle);
 }
 
 export interface DbmlEditorHandle {
@@ -77,7 +88,7 @@ interface DbmlEditorProps {
 }
 
 export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(
-  function DbmlEditor({ initialValue, onChange, onCursorChange, parseError, schemaRef }, ref) {
+  function DbmlEditor({ initialValue, onChange, onCursorChange, schemaRef }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);

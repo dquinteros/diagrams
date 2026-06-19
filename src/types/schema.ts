@@ -3,7 +3,14 @@ export interface SchemaIR {
   refs: RefIR[];
   enums: EnumIR[];
   tableGroups: TableGroupIR[];
+  notes: NoteIR[];
   project: ProjectIR | null;
+}
+
+export interface NoteIR {
+  name: string | null;
+  content: string;
+  spanRange: [number, number];
 }
 
 export interface TableIR {
@@ -26,6 +33,7 @@ export interface ColumnIR {
   isIncremental: boolean;
   defaultValue: string | null;
   note: string | null;
+  check: string | null;
   spanRange: [number, number];
 }
 

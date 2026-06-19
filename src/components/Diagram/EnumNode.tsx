@@ -13,16 +13,29 @@ interface EnumNodeProps {
   enumBlock: EnumIR;
   layout: LayoutNode;
   detailLevel: DetailLevel;
+  onDragStart: (id: string, e: React.MouseEvent) => void;
+  onNavigateToSource?: (spanRange: [number, number]) => void;
 }
 
-export function EnumNode({ enumBlock, layout, detailLevel }: EnumNodeProps) {
+export function EnumNode({
+  enumBlock,
+  layout,
+  detailLevel,
+  onDragStart,
+  onNavigateToSource,
+}: EnumNodeProps) {
   const { theme } = useTheme();
   const showValues = detailLevel === "full";
   const valueCount = showValues ? enumBlock.values.length : 0;
   const height = HEADER_HEIGHT + valueCount * ROW_HEIGHT + TABLE_PADDING * 2;
 
   return (
-    <g transform={`translate(${layout.x}, ${layout.y})`}>
+    <g
+      transform={`translate(${layout.x}, ${layout.y})`}
+      onMouseDown={(e) => onDragStart(layout.id, e)}
+      onDoubleClick={() => onNavigateToSource?.(enumBlock.spanRange)}
+      style={{ cursor: "move" }}
+    >
       <rect
         width={TABLE_WIDTH}
         height={height}
