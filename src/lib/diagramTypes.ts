@@ -115,24 +115,23 @@ export const DIAGRAM_TYPES: Record<DiagramType, DiagramTypeInfo> = {
     label: "BPMN",
     fileExts: ["bpmn"],
     defaultExt: "bpmn",
-    defaultContent: `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-                  id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="Process_1" isExecutable="false">
-    <bpmn:startEvent id="StartEvent_1" name="Start" />
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
-      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
-        <dc:Bounds x="160" y="120" width="36" height="36" />
-      </bpmndi:BPMNShape>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>
+    defaultContent: `# BPMN process — write nodes, then connect them with ->
+# Node kinds: start, end, task, user, service, script, xor (gateway), and, event
+
+start  begin  "Order received"
+task   check  "Check stock"
+xor    gw     "In stock?"
+task   ship   "Ship order"
+end    done   "Order shipped"
+end    oos    "Out of stock"
+
+begin -> check
+check -> gw
+gw -> ship : "yes"
+gw -> oos  : "no"
+ship -> done
 `,
-    detect: (c) => /<\w*:?definitions[\s>]/.test(c) && /bpmn/i.test(c),
+    detect: (c) => /^\s*(start|end|task|user|service|script|xor|and|event)\s+[A-Za-z_]/m.test(c) && /->/.test(c),
   },
 };
 

@@ -1,0 +1,44 @@
+/* Dark/theme-aware styling for the bpmn-js viewer so BPMN matches the rest of
+   the app. Colors come from CSS variables set on .bpmn-themed by BpmnPane.
+   bpmn-js sets stroke/fill via attributes/inline, so we need !important. */
+
+.bpmn-themed .bjs-powered-by {
+  display: none !important;
+}
+
+/* Shape outlines + fills */
+.bpmn-themed .djs-visual > rect,
+.bpmn-themed .djs-visual > circle,
+.bpmn-themed .djs-visual > ellipse,
+.bpmn-themed .djs-visual > polygon,
+.bpmn-themed .djs-visual > path {
+  stroke: var(--bpmn-stroke) !important;
+  fill: var(--bpmn-fill) !important;
+}
+
+/* Connections (sequence flows) — line, no fill */
+.bpmn-themed .djs-connection .djs-visual > path,
+.bpmn-themed .djs-connection .djs-visual > polyline {
+  stroke: var(--bpmn-stroke) !important;
+  fill: none !important;
+}
+
+/* Arrowheads / markers */
+.bpmn-themed marker path,
+.bpmn-themed marker polyline,
+.bpmn-themed marker circle {
+  stroke: var(--bpmn-stroke) !important;
+  fill: var(--bpmn-stroke) !important;
+}
+
+/* Labels / text */
+.bpmn-themed .djs-visual > text,
+.bpmn-themed .djs-label,
+.bpmn-themed text.djs-label tspan {
+  fill: var(--bpmn-text) !important;
+}
+
+/* Selection / hover outlines */
+.bpmn-themed .djs-outline {
+  stroke: var(--bpmn-accent) !important;
+}

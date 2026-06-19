@@ -1,83 +1,103 @@
-import { useEffect, useRef, useState } from "react";
-import Modeler from "bpmn-js/lib/Modeler";
+import { useEffect, useRef, useState, useCallback } from "react";
+import NavigatedViewer from "bpmn-js/lib/NavigatedViewer";
 import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-js.css";
 import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
+import "./bpmn-theme.css";
+import { compileBpmn } from "../../lib/bpmn/layout";
 import { useTheme } from "../../context/ThemeContext";
+import { ZoomControls } from "../Diagram/ZoomControls";
 
 interface BpmnPaneProps {
   content: string;
-  onContentChange: (xml: string) => void;
 }
 
-type ModelerInstance = InstanceType<typeof Modeler>;
+type ViewerInstance = InstanceType<typeof NavigatedViewer>;
 
-export default function BpmnPane({ content, onContentChange }: BpmnPaneProps) {
+export default function BpmnPane({ content }: BpmnPaneProps) {
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
-  const modelerRef = useRef<ModelerInstance | null>(null);
-  // Last XML the pane imported or emitted — used to break the sync echo loop.
-  const lastXmlRef = useRef<string>("");
-  const fromDiagramRef = useRef(false);
-  const onChangeRef = useRef(onContentChange);
-  onChangeRef.current = onContentChange;
+  const viewerRef = useRef<ViewerInstance | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [zoomPct, setZoomPct] = useState(100);
 
-  async function importXml(xml: string) {
-    const m = modelerRef.current;
-    if (!m || !xml.trim()) return;
-    try {
-      await m.importXML(xml);
-      m.get("canvas").zoom("fit-viewport");
-      lastXmlRef.current = xml;
-      setError(null);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Invalid BPMN XML");
-    }
-  }
-
-  // Initialise the modeler once.
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const modeler = new Modeler({ container: containerRef.current });
-    modelerRef.current = modeler;
-
-    modeler.on("commandStack.changed", () => {
-      modeler
-        .saveXML({ format: true })
-        .then(({ xml }) => {
-          if (xml && xml !== lastXmlRef.current) {
-            lastXmlRef.current = xml;
-            fromDiagramRef.current = true; // mark origin so we skip re-import
-            onChangeRef.current(xml);
-          }
-        })
-        .catch(() => {});
-    });
-
-    setReady(true);
-    void importXml(content);
-
-    return () => modeler.destroy();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const syncZoom = useCallback(() => {
+    const v = viewerRef.current;
+    if (!v) return;
+    setZoomPct(Math.round(v.get("canvas").zoom() * 100));
   }, []);
 
-  // External (editor) XML edits → diagram, unless the change came from the diagram.
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const viewer = new NavigatedViewer({ container: containerRef.current });
+    viewerRef.current = viewer;
+    setReady(true);
+    return () => viewer.destroy();
+  }, []);
+
+  // Compile the DSL → BPMN XML (with auto-layout) and render it. Debounced.
   useEffect(() => {
     if (!ready) return;
-    if (fromDiagramRef.current) {
-      fromDiagramRef.current = false;
-      return;
-    }
-    if (content === lastXmlRef.current) return;
-    const t = setTimeout(() => void importXml(content), 400);
-    return () => clearTimeout(t);
-  }, [content, ready]);
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const { xml, error: compileError } = await compileBpmn(content);
+      if (cancelled) return;
+      if (compileError) {
+        setError(compileError);
+        return;
+      }
+      if (!xml) {
+        setError(null);
+        return;
+      }
+      try {
+        await viewerRef.current!.importXML(xml);
+        if (cancelled) return;
+        viewerRef.current!.get("canvas").zoom("fit-viewport");
+        syncZoom();
+        setError(null);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to render BPMN");
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [content, ready, syncZoom]);
+
+  const zoomBy = (factor: number) => {
+    const v = viewerRef.current;
+    if (!v) return;
+    const c = v.get("canvas");
+    c.zoom(c.zoom() * factor);
+    syncZoom();
+  };
+  const fit = () => {
+    viewerRef.current?.get("canvas").zoom("fit-viewport");
+    syncZoom();
+  };
+
+  const cssVars = {
+    "--bpmn-stroke": theme.columnText,
+    "--bpmn-fill": theme.tableBg,
+    "--bpmn-text": theme.headerText,
+    "--bpmn-accent": theme.tableBorderSelected,
+  } as React.CSSProperties;
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", backgroundColor: "#fff" }}>
+    <div
+      className="bpmn-themed"
+      style={{ position: "relative", width: "100%", height: "100%", backgroundColor: theme.canvasBg, ...cssVars }}
+    >
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      <ZoomControls
+        zoomPercentage={zoomPct}
+        onZoomIn={() => zoomBy(1.2)}
+        onZoomOut={() => zoomBy(0.8)}
+        onFitToScreen={fit}
+      />
       {error && (
         <div
           style={{
@@ -91,6 +111,7 @@ export default function BpmnPane({ content, onContentChange }: BpmnPaneProps) {
             borderRadius: 4,
             fontFamily: "monospace",
             fontSize: 12,
+            whiteSpace: "pre-wrap",
           }}
         >
           {error}

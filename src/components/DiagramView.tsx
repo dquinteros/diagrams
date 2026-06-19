@@ -74,7 +74,7 @@ export function DiagramView(props: DiagramViewProps) {
           </div>
         }
       >
-        <BpmnPane content={props.content} onContentChange={props.onContentChange} />
+        <BpmnPane content={props.content} />
       </Suspense>
     );
   }
