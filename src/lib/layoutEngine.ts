@@ -13,6 +13,7 @@ import {
   NOTE_WIDTH,
   NOTE_LINE_HEIGHT,
   NOTE_PADDING,
+  NOTE_CHAR_WIDTH,
 } from "./constants";
 
 /** Columns that participate in a relationship for the given table. */
@@ -50,8 +51,49 @@ function enumHeight(valueCount: number): number {
   return HEADER_HEIGHT + valueCount * ROW_HEIGHT + TABLE_PADDING * 2;
 }
 
+/** Word-wrap sticky-note content to the note width (SVG text doesn't wrap). */
+export function wrapNoteText(content: string): string[] {
+  const maxChars = Math.max(
+    1,
+    Math.floor((NOTE_WIDTH - NOTE_PADDING * 2) / NOTE_CHAR_WIDTH)
+  );
+  const out: string[] = [];
+  for (const rawLine of content.split("\n")) {
+    if (rawLine.length <= maxChars) {
+      out.push(rawLine);
+      continue;
+    }
+    let line = "";
+    for (const word of rawLine.split(/\s+/)) {
+      if (word.length > maxChars) {
+        // Hard-split words longer than a full line.
+        if (line) {
+          out.push(line);
+          line = "";
+        }
+        let rest = word;
+        while (rest.length > maxChars) {
+          out.push(rest.slice(0, maxChars));
+          rest = rest.slice(maxChars);
+        }
+        line = rest;
+        continue;
+      }
+      const candidate = line ? `${line} ${word}` : word;
+      if (candidate.length > maxChars) {
+        out.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) out.push(line);
+  }
+  return out.length ? out : [""];
+}
+
 export function noteHeight(content: string): number {
-  const lines = Math.max(1, content.split("\n").length);
+  const lines = wrapNoteText(content).length;
   return HEADER_HEIGHT + lines * NOTE_LINE_HEIGHT + NOTE_PADDING * 2;
 }
 

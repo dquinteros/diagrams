@@ -7,6 +7,7 @@ import {
   NOTE_LINE_HEIGHT,
   TABLE_BORDER_RADIUS,
 } from "../../lib/constants";
+import { wrapNoteText } from "../../lib/layoutEngine";
 
 interface StickyNoteNodeProps {
   note: NoteIR;
@@ -22,7 +23,7 @@ export function StickyNoteNode({
   onNavigateToSource,
 }: StickyNoteNodeProps) {
   const { theme } = useTheme();
-  const lines = note.content.split("\n");
+  const lines = wrapNoteText(note.content);
 
   return (
     <g
