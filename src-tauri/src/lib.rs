@@ -20,6 +20,7 @@ pub fn run() {
             commands::file_ops::open_sql_file,
             commands::file_ops::save_file,
             commands::file_ops::export_sql_file,
+            commands::diag::report_error,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

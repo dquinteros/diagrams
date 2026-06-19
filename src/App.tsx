@@ -5,6 +5,7 @@ import { CodeEditor, type CodeEditorHandle } from "./components/Editor/CodeEdito
 import { languageExtensionsFor } from "./components/Editor/languages";
 import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { DiagramView } from "./components/DiagramView";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { defaultContentFor, DIAGRAM_TYPES } from "./lib/diagramTypes";
 import { parseSequence } from "./lib/sequence/parse";
 import { layoutSequence } from "./lib/sequence/layout";
@@ -542,6 +543,7 @@ function App() {
           }}
         />
         <div style={{ flex: 1, overflow: "hidden" }}>
+          <ErrorBoundary key={`${activeId}-${activeDoc.type}`}>
           <DiagramView
             type={activeDoc.type}
             schema={schema}
@@ -557,6 +559,7 @@ function App() {
             content={content}
             onContentChange={handleContentChange}
           />
+          </ErrorBoundary>
         </div>
       </div>
       {showImportModal && (

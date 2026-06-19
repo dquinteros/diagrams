@@ -41,9 +41,11 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
         fontFamily: "monospace",
         fontSize: 12,
         flexShrink: 0,
-        overflowX: "auto",
+        // NOTE: no overflow here — it would clip the new-tab dropdown. The
+        // scrollable region is the inner tabs container below.
       }}
     >
+      <div style={{ display: "flex", alignItems: "stretch", overflowX: "auto", minWidth: 0 }}>
       {docs.map((doc) => {
         const isActive = doc.id === activeId;
         return (
@@ -90,6 +92,7 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
           </div>
         );
       })}
+      </div>
       <div ref={newRef} style={{ position: "relative", display: "inline-flex" }}>
         <button
           onClick={() => setNewOpen((o) => !o)}
