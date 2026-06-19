@@ -21,6 +21,7 @@ interface ToolbarProps {
   recentFiles: string[];
   autosave: boolean;
   isSaving: boolean;
+  showSqlActions: boolean;
   onOpen: () => void;
   onOpenRecent: (path: string) => void;
   onToggleAutosave: () => void;
@@ -43,6 +44,7 @@ export function Toolbar({
   recentFiles,
   autosave,
   isSaving,
+  showSqlActions,
   onOpen,
   onOpenRecent,
   onToggleAutosave,
@@ -148,8 +150,11 @@ export function Toolbar({
         >
           <IconAutosave />
         </button>
-        <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />
+        {showSqlActions && (
+          <ImportMenu onImportFile={onImportFile} onPasteSql={onPasteSql} />
+        )}
         <ExportMenu
+          showSql={showSqlActions}
           onExportSql={onExportSql}
           onExportSvg={onExportSvg}
           onExportPng={onExportPng}

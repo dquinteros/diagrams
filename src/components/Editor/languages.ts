@@ -4,6 +4,7 @@ import { dbmlLanguage } from "./dbmlLanguage";
 import { dbmlFoldService } from "./dbmlFolding";
 import { createDbmlCompletion } from "./dbmlCompletion";
 import { sequenceLanguage } from "./sequenceLanguage";
+import { xml } from "@codemirror/lang-xml";
 import type { DiagramType } from "../../lib/diagramTypes";
 import type { SchemaIR } from "../../types/schema";
 
@@ -24,6 +25,8 @@ export function languageExtensionsFor(
       ];
     case "sequence":
       return [sequenceLanguage];
+    case "bpmn":
+      return [xml()];
     default:
       return [];
   }

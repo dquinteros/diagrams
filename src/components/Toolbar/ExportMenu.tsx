@@ -3,6 +3,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { IconExport } from "../icons";
 
 interface ExportMenuProps {
+  showSql: boolean;
   onExportSql: (dialect: string) => void;
   onExportSvg: () => void;
   onExportPng: () => void;
@@ -22,7 +23,7 @@ const IMAGE_FORMATS = [
   { id: "pdf", label: "PDF" },
 ];
 
-export function ExportMenu({ onExportSql, onExportSvg, onExportPng, onExportPdf }: ExportMenuProps) {
+export function ExportMenu({ showSql, onExportSql, onExportSvg, onExportPng, onExportPdf }: ExportMenuProps) {
   const { theme } = useTheme();
   const imageHandlers: Record<string, () => void> = {
     svg: onExportSvg,
@@ -80,32 +81,36 @@ export function ExportMenu({ onExportSql, onExportSvg, onExportPng, onExportPdf 
             boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
           }}
         >
-          <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
-            Export SQL
-          </div>
-          {DIALECTS.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => { onExportSql(d.id); setIsOpen(false); }}
-              style={{
-                display: "block",
-                width: "100%",
-                background: "transparent",
-                border: "none",
-                color: theme.controlText,
-                padding: "6px 12px",
-                cursor: "pointer",
-                fontSize: 12,
-                fontFamily: "monospace",
-                textAlign: "left",
-              }}
-              onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
-              onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = "transparent")}
-            >
-              {d.label}
-            </button>
-          ))}
-          <div style={{ borderTop: `1px solid ${theme.controlBorder}`, margin: "4px 0" }} />
+          {showSql && (
+            <>
+              <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
+                Export SQL
+              </div>
+              {DIALECTS.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => { onExportSql(d.id); setIsOpen(false); }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    background: "transparent",
+                    border: "none",
+                    color: theme.controlText,
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontFamily: "monospace",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
+                  onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = "transparent")}
+                >
+                  {d.label}
+                </button>
+              ))}
+              <div style={{ borderTop: `1px solid ${theme.controlBorder}`, margin: "4px 0" }} />
+            </>
+          )}
           <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
             Export Image
           </div>

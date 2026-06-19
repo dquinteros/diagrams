@@ -83,10 +83,16 @@ interface CodeEditorProps {
   onCursorChange?: (offset: number) => void;
   /** Language-specific extensions (grammar, completion, folding) by diagram type. */
   languageExtensions: Extension[];
+  /**
+   * Authoritative content. When it changes externally (e.g. the BPMN modeler
+   * edits the XML), the editor is updated to match. No-op for editor-originated
+   * changes since the value already equals the document.
+   */
+  syncValue?: string;
 }
 
 export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
-  function CodeEditor({ initialValue, onChange, onCursorChange, languageExtensions }, ref) {
+  function CodeEditor({ initialValue, onChange, onCursorChange, languageExtensions, syncValue }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
@@ -165,6 +171,16 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
         ],
       });
     }, [theme]);
+
+    // Reflect external content changes (e.g. BPMN modeler editing the XML).
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view || syncValue === undefined) return;
+      const current = view.state.doc.toString();
+      if (syncValue !== current) {
+        view.dispatch({ changes: { from: 0, to: current.length, insert: syncValue } });
+      }
+    }, [syncValue]);
 
     return (
       <div ref={containerRef} style={{ height: "100%", overflow: "hidden" }} />

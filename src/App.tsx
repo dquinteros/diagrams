@@ -482,6 +482,7 @@ function App() {
         recentFiles={recentFiles}
         autosave={autosave}
         isSaving={isSaving}
+        showSqlActions={isDbml}
         onOpen={handleOpen}
         onOpenRecent={handleOpenRecent}
         onToggleAutosave={toggleAutosave}
@@ -517,6 +518,7 @@ function App() {
             onChange={handleContentChange}
             onCursorChange={handleCursorChange}
             languageExtensions={languageExtensions}
+            syncValue={content}
           />
         </div>
         <div

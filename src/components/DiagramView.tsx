@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import type { SchemaIR } from "../types/schema";
 import type { LayoutResult, DetailLevel } from "../types/layout";
 import type { DiagramType } from "../lib/diagramTypes";
@@ -5,6 +6,9 @@ import type { SeqLayout } from "../lib/sequence/layout";
 import { DiagramCanvas } from "./Diagram/DiagramCanvas";
 import { SequenceCanvas } from "./Sequence/SequenceCanvas";
 import { useTheme } from "../context/ThemeContext";
+
+// bpmn-js is heavy; load it only when a BPMN document is shown.
+const BpmnPane = lazy(() => import("./Bpmn/BpmnPane"));
 
 interface DiagramViewProps {
   type: DiagramType;
@@ -51,20 +55,29 @@ export function DiagramView(props: DiagramViewProps) {
     return <SequenceCanvas layout={props.seqLayout} storageKey={props.storageKey} />;
   }
 
-  // BPMN renderer is added in a later phase.
-  return (
-    <div
-      style={{
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: theme.toolbarTextMuted,
-        fontFamily: "monospace",
-        fontSize: 13,
-      }}
-    >
-      Renderer for “{props.type}” coming soon…
-    </div>
-  );
+  if (props.type === "bpmn") {
+    return (
+      <Suspense
+        fallback={
+          <div
+            style={{
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: theme.toolbarTextMuted,
+              fontFamily: "monospace",
+              fontSize: 13,
+            }}
+          >
+            Loading BPMN editor…
+          </div>
+        }
+      >
+        <BpmnPane content={props.content} onContentChange={props.onContentChange} />
+      </Suspense>
+    );
+  }
+
+  return null;
 }
