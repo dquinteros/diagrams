@@ -1,14 +1,11 @@
-import { lazy, Suspense } from "react";
 import type { SchemaIR } from "../types/schema";
 import type { LayoutResult, DetailLevel } from "../types/layout";
 import type { DiagramType } from "../lib/diagramTypes";
 import type { SeqLayout } from "../lib/sequence/layout";
+import type { BpmnCanvasLayout } from "../lib/bpmn/canvasLayout";
 import { DiagramCanvas } from "./Diagram/DiagramCanvas";
 import { SequenceCanvas } from "./Sequence/SequenceCanvas";
-import { useTheme } from "../context/ThemeContext";
-
-// bpmn-js is heavy; load it only when a BPMN document is shown.
-const BpmnPane = lazy(() => import("./Bpmn/BpmnPane"));
+import { BpmnCanvas } from "./Bpmn/BpmnCanvas";
 
 interface DiagramViewProps {
   type: DiagramType;
@@ -22,17 +19,14 @@ interface DiagramViewProps {
   highlightedTable: string | null;
   onNavigateToSource?: (spanRange: [number, number]) => void;
   storageKey: string;
-  // Sequence render input:
+  // Sequence / BPMN render inputs:
   seqLayout: SeqLayout | null;
-  // Generic (bpmn) inputs:
-  content: string;
-  onContentChange: (value: string) => void;
+  bpmnLayout: BpmnCanvasLayout | null;
 }
 
-/** Right-pane renderer, dispatched by diagram type. */
+/** Right-pane renderer, dispatched by diagram type. All types share the same
+ *  SVG canvas chrome (pan/zoom, minimap, hover highlight) for a consistent look. */
 export function DiagramView(props: DiagramViewProps) {
-  const { theme } = useTheme();
-
   if (props.type === "dbml") {
     if (!props.schema) return null;
     return (
@@ -56,27 +50,8 @@ export function DiagramView(props: DiagramViewProps) {
   }
 
   if (props.type === "bpmn") {
-    return (
-      <Suspense
-        fallback={
-          <div
-            style={{
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: theme.toolbarTextMuted,
-              fontFamily: "monospace",
-              fontSize: 13,
-            }}
-          >
-            Loading BPMN editor…
-          </div>
-        }
-      >
-        <BpmnPane content={props.content} />
-      </Suspense>
-    );
+    if (!props.bpmnLayout) return null;
+    return <BpmnCanvas layout={props.bpmnLayout} storageKey={props.storageKey} />;
   }
 
   return null;

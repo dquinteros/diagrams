@@ -9,6 +9,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { defaultContentFor, DIAGRAM_TYPES } from "./lib/diagramTypes";
 import { parseSequence } from "./lib/sequence/parse";
 import { layoutSequence } from "./lib/sequence/layout";
+import { parseBpmn } from "./lib/bpmn/parse";
+import { computeBpmnLayout } from "./lib/bpmn/canvasLayout";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { TabBar } from "./components/Toolbar/TabBar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
@@ -72,15 +74,23 @@ function App() {
     return { layout: layoutSequence(ir), error };
   }, [activeDoc.type, content]);
 
+  // BPMN diagrams parse + layout entirely client-side (custom SVG renderer).
+  const bpmn = useMemo(() => {
+    if (activeDoc.type !== "bpmn") return null;
+    const { ir, error } = parseBpmn(content);
+    return { layout: computeBpmnLayout(ir), error };
+  }, [activeDoc.type, content]);
+
   // Active diagram bounds (used by image export).
-  const diagramW = isDbml ? layout.width : seq?.layout.width ?? 0;
-  const diagramH = isDbml ? layout.height : seq?.layout.height ?? 0;
+  const diagramW = isDbml ? layout.width : seq?.layout.width ?? bpmn?.layout.width ?? 0;
+  const diagramH = isDbml ? layout.height : seq?.layout.height ?? bpmn?.layout.height ?? 0;
 
   // Unified parse-error for the toolbar across diagram types.
+  const otherError = seq?.error ?? bpmn?.error ?? null;
   const activeError = isDbml
     ? parseError
-    : seq?.error
-      ? { message: seq.error.message, span: null as [number, number] | null }
+    : otherError
+      ? { message: otherError.message, span: null as [number, number] | null }
       : null;
 
   const [dividerPos, setDividerPos] = useState(40);
@@ -478,7 +488,9 @@ function App() {
             ? `${schema.tables.length} tables, ${schema.refs.length} refs`
             : activeDoc.type === "sequence" && seq
               ? `${seq.layout.participants.length} participants, ${seq.layout.messages.length} messages`
-              : DIAGRAM_TYPES[activeDoc.type].label
+              : activeDoc.type === "bpmn" && bpmn
+                ? `${bpmn.layout.nodes.length} nodes, ${bpmn.layout.edges.length} flows`
+                : DIAGRAM_TYPES[activeDoc.type].label
         }
         filePath={activeDoc.filePath}
         isDirty={activeDoc.isDirty}
@@ -556,8 +568,7 @@ function App() {
             onNavigateToSource={handleNavigateToSource}
             storageKey={`${activeDoc.filePath ?? `untitled-${activeId}`}::${rankdir}`}
             seqLayout={seq?.layout ?? null}
-            content={content}
-            onContentChange={handleContentChange}
+            bpmnLayout={bpmn?.layout ?? null}
           />
           </ErrorBoundary>
         </div>
