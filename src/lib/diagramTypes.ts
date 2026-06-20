@@ -115,17 +115,22 @@ export const DIAGRAM_TYPES: Record<DiagramType, DiagramTypeInfo> = {
     label: "BPMN",
     fileExts: ["bpmn"],
     defaultExt: "bpmn",
-    defaultContent: `# BPMN process — write nodes, then connect them with ->
-# Node kinds: start, end, task, user, service, script, xor (gateway), and, event
+    defaultContent: `# BPMN process. Node kinds: start, end, task, user, service, script, xor, and, event
+# Group nodes into swimlanes with: lane "Name"
 
-start  begin  "Order received"
-task   check  "Check stock"
-xor    gw     "In stock?"
-task   ship   "Ship order"
-end    done   "Order shipped"
-end    oos    "Out of stock"
+lane "Customer"
+  start  begin  "Order received"
+  task   pay    "Pay"
 
-begin -> check
+lane "Sales"
+  task   check  "Check stock"
+  xor    gw     "In stock?"
+  task   ship   "Ship order"
+  end    done   "Order shipped"
+  end    oos    "Out of stock"
+
+begin -> pay
+pay -> check
 check -> gw
 gw -> ship : "yes"
 gw -> oos  : "no"

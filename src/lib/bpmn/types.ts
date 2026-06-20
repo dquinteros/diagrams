@@ -15,6 +15,7 @@ export interface BpmnNode {
   id: string;
   kind: BpmnNodeKind;
   label: string;
+  lane?: string; // lane name this node belongs to, if any
 }
 
 export interface BpmnFlow {
@@ -27,6 +28,8 @@ export interface BpmnFlow {
 export interface BpmnIR {
   nodes: BpmnNode[];
   flows: BpmnFlow[];
+  /** Lane names in declaration order (empty when no lanes are used). */
+  lanes: string[];
 }
 
 export interface BpmnParseError {

@@ -24,13 +24,15 @@ export function parseBpmn(input: string): BpmnParseResult {
   const nodes: BpmnNode[] = [];
   const byId = new Map<string, BpmnNode>();
   const flows: BpmnFlow[] = [];
+  const lanes: string[] = [];
+  let currentLane: string | undefined;
   let error: BpmnParseResult["error"] = null;
   let flowSeq = 0;
 
   const ensureNode = (id: string, kind: BpmnNodeKind = "task", label?: string) => {
     const existing = byId.get(id);
     if (existing) return existing;
-    const node: BpmnNode = { id, kind, label: label ?? id };
+    const node: BpmnNode = { id, kind, label: label ?? id, lane: currentLane };
     byId.set(id, node);
     nodes.push(node);
     return node;
@@ -40,6 +42,15 @@ export function parseBpmn(input: string): BpmnParseResult {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line || line.startsWith("#") || line.startsWith("//")) continue;
+
+    // Lane block: `lane "Name"` — subsequent nodes belong to it.
+    const laneMatch = /^lane\s+(.+)$/i.exec(line);
+    if (laneMatch) {
+      const name = unquote(laneMatch[1]);
+      currentLane = name;
+      if (!lanes.includes(name)) lanes.push(name);
+      continue;
+    }
 
     // Flow: a -> b [: "label"]
     const flow = FLOW_RE.exec(line);
@@ -67,6 +78,7 @@ export function parseBpmn(input: string): BpmnParseResult {
         if (existing) {
           existing.kind = kind as BpmnNodeKind;
           existing.label = label;
+          existing.lane = currentLane;
         } else {
           ensureNode(id, kind as BpmnNodeKind, label);
         }
@@ -79,5 +91,5 @@ export function parseBpmn(input: string): BpmnParseResult {
     }
   }
 
-  return { ir: { nodes, flows }, error };
+  return { ir: { nodes, flows, lanes }, error };
 }
