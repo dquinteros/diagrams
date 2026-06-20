@@ -80,8 +80,10 @@ export default function BpmnPane({ content }: BpmnPaneProps) {
   };
 
   const cssVars = {
-    "--bpmn-stroke": theme.columnText,
-    "--bpmn-fill": theme.tableBg,
+    "--bpmn-stroke": theme.tableBorder, // ER card border
+    "--bpmn-fill": theme.tableHeader, // ER header fill
+    "--bpmn-edge": theme.edgeLine, // ER relationship line
+    "--bpmn-band": theme.groupBg, // ER table-group band
     "--bpmn-text": theme.headerText,
     "--bpmn-accent": theme.tableBorderSelected,
   } as React.CSSProperties;

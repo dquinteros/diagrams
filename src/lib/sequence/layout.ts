@@ -25,6 +25,8 @@ export interface SeqLayoutParticipant {
 }
 
 export interface SeqLayoutMessage {
+  from: string;
+  to: string;
   x1: number;
   x2: number;
   y: number;
@@ -42,6 +44,7 @@ export interface SeqLayoutNote {
 }
 
 export interface SeqLayoutActivation {
+  id: string;
   x: number;
   y1: number;
   y2: number;
@@ -97,7 +100,7 @@ export function layoutSequence(ir: SequenceIR): SeqLayout {
     const s = actStacks.get(id);
     if (!s || s.length === 0) return;
     const y1 = s.pop()!;
-    activations.push({ x: cxOf(id), y1, y2: y });
+    activations.push({ id, x: cxOf(id), y1, y2: y });
   };
 
   // Open fragment frames.
@@ -109,6 +112,8 @@ export function layoutSequence(ir: SequenceIR): SeqLayout {
         const self = ev.from === ev.to;
         if (ev.activate) pushAct(ev.to);
         messages.push({
+          from: ev.from,
+          to: ev.to,
           x1: cxOf(ev.from),
           x2: cxOf(ev.to),
           y,
@@ -185,7 +190,7 @@ export function layoutSequence(ir: SequenceIR): SeqLayout {
     const s = actStacks.get(id)!;
     while (s.length) {
       const y1 = s.pop()!;
-      activations.push({ x: cxOf(id), y1, y2: y });
+      activations.push({ id, x: cxOf(id), y1, y2: y });
     }
   }
 
