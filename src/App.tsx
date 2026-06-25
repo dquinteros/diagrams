@@ -11,6 +11,8 @@ import { parseSequence } from "./lib/sequence/parse";
 import { layoutSequence } from "./lib/sequence/layout";
 import { parseBpmn } from "./lib/bpmn/parse";
 import { computeBpmnLayout } from "./lib/bpmn/canvasLayout";
+import { parseArchitecture } from "./lib/architecture/parse";
+import { computeArchitectureLayout } from "./lib/architecture/layout";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { TabBar } from "./components/Toolbar/TabBar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
@@ -81,12 +83,19 @@ function App() {
     return { layout: computeBpmnLayout(ir), error };
   }, [activeDoc.type, content]);
 
+  // Architecture diagrams parse + layout entirely client-side (custom SVG renderer).
+  const arch = useMemo(() => {
+    if (activeDoc.type !== "architecture") return null;
+    const { ir, error } = parseArchitecture(content);
+    return { layout: computeArchitectureLayout(ir), error };
+  }, [activeDoc.type, content]);
+
   // Active diagram bounds (used by image export).
-  const diagramW = isDbml ? layout.width : seq?.layout.width ?? bpmn?.layout.width ?? 0;
-  const diagramH = isDbml ? layout.height : seq?.layout.height ?? bpmn?.layout.height ?? 0;
+  const diagramW = isDbml ? layout.width : seq?.layout.width ?? bpmn?.layout.width ?? arch?.layout.width ?? 0;
+  const diagramH = isDbml ? layout.height : seq?.layout.height ?? bpmn?.layout.height ?? arch?.layout.height ?? 0;
 
   // Unified parse-error for the toolbar across diagram types.
-  const otherError = seq?.error ?? bpmn?.error ?? null;
+  const otherError = seq?.error ?? bpmn?.error ?? arch?.error ?? null;
   const activeError = isDbml
     ? parseError
     : otherError
@@ -490,7 +499,9 @@ function App() {
               ? `${seq.layout.participants.length} participants, ${seq.layout.messages.length} messages`
               : activeDoc.type === "bpmn" && bpmn
                 ? `${bpmn.layout.nodes.length} nodes, ${bpmn.layout.edges.length} flows`
-                : DIAGRAM_TYPES[activeDoc.type].label
+                : activeDoc.type === "architecture" && arch
+                  ? `${arch.layout.nodes.length} nodes, ${arch.layout.edges.length} connections`
+                  : DIAGRAM_TYPES[activeDoc.type].label
         }
         filePath={activeDoc.filePath}
         isDirty={activeDoc.isDirty}
@@ -569,6 +580,7 @@ function App() {
             storageKey={`${activeDoc.filePath ?? `untitled-${activeId}`}::${rankdir}`}
             seqLayout={seq?.layout ?? null}
             bpmnLayout={bpmn?.layout ?? null}
+            archLayout={arch?.layout ?? null}
           />
           </ErrorBoundary>
         </div>

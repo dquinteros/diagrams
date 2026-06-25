@@ -3,9 +3,11 @@ import type { LayoutResult, DetailLevel } from "../types/layout";
 import type { DiagramType } from "../lib/diagramTypes";
 import type { SeqLayout } from "../lib/sequence/layout";
 import type { BpmnCanvasLayout } from "../lib/bpmn/canvasLayout";
+import type { ArchCanvasLayout } from "../lib/architecture/layout";
 import { DiagramCanvas } from "./Diagram/DiagramCanvas";
 import { SequenceCanvas } from "./Sequence/SequenceCanvas";
 import { BpmnCanvas } from "./Bpmn/BpmnCanvas";
+import { ArchitectureCanvas } from "./Architecture/ArchitectureCanvas";
 
 interface DiagramViewProps {
   type: DiagramType;
@@ -19,9 +21,10 @@ interface DiagramViewProps {
   highlightedTable: string | null;
   onNavigateToSource?: (spanRange: [number, number]) => void;
   storageKey: string;
-  // Sequence / BPMN render inputs:
+  // Sequence / BPMN / Architecture render inputs:
   seqLayout: SeqLayout | null;
   bpmnLayout: BpmnCanvasLayout | null;
+  archLayout: ArchCanvasLayout | null;
 }
 
 /** Right-pane renderer, dispatched by diagram type. All types share the same
@@ -52,6 +55,11 @@ export function DiagramView(props: DiagramViewProps) {
   if (props.type === "bpmn") {
     if (!props.bpmnLayout) return null;
     return <BpmnCanvas layout={props.bpmnLayout} storageKey={props.storageKey} />;
+  }
+
+  if (props.type === "architecture") {
+    if (!props.archLayout) return null;
+    return <ArchitectureCanvas layout={props.archLayout} storageKey={props.storageKey} />;
   }
 
   return null;

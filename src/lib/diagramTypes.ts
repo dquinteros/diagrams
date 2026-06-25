@@ -2,7 +2,7 @@
 // which file extensions map to it, its starter template, and a content sniffer
 // used to auto-detect the type when opening a file.
 
-export type DiagramType = "dbml" | "sequence" | "bpmn";
+export type DiagramType = "dbml" | "sequence" | "bpmn" | "architecture";
 
 export interface DiagramTypeInfo {
   id: DiagramType;
@@ -138,10 +138,45 @@ ship -> done
 `,
     detect: (c) => /^\s*(start|end|task|user|service|script|xor|and|event)\s+[A-Za-z_]/m.test(c) && /->/.test(c),
   },
+  architecture: {
+    id: "architecture",
+    label: "Architecture",
+    fileExts: ["arch"],
+    defaultExt: "arch",
+    defaultContent: `# Architecture diagram. Node kinds (cloud/infra + C4):
+#   service database queue cache gateway storage external user
+#   person system container component
+# Group nodes into zones with: group "Name" … end
+# Connections: a -> b [: "label"]   (add a trailing ~ for async/dashed)
+
+group "AWS Cloud"
+  user     customer "Customer"
+  gateway  api      "API Gateway"
+  service  auth     "Auth Service"
+  database db       "Postgres"
+  cache    redis    "Redis"
+  queue    mq       "SQS"
+end
+
+external stripe "Stripe API"
+
+customer -> api    : "HTTPS"
+api      -> auth
+auth     -> redis
+api      -> db
+api      -> mq     : "async" ~
+api      -> stripe : "REST"
+`,
+    // Architecture-exclusive kinds (or a group block) together with a flow.
+    detect: (c) =>
+      (/^\s*group\s+["']/m.test(c) ||
+        /^\s*(database|db|queue|mq|cache|gateway|storage|external|person|system|container|component)\s+[A-Za-z_]/im.test(c)) &&
+      /->/.test(c),
+  },
 };
 
 /** Types currently exposed in the UI (new-tab picker). */
-export const ENABLED_TYPES: DiagramType[] = ["dbml", "sequence", "bpmn"];
+export const ENABLED_TYPES: DiagramType[] = ["dbml", "sequence", "bpmn", "architecture"];
 
 export function typeForExtension(ext: string): DiagramType | null {
   const lower = ext.toLowerCase();
@@ -161,8 +196,9 @@ export function detectType(filePath: string | null, content: string): DiagramTyp
     }
   }
   // Content sniff, most-specific first.
-  if (DIAGRAM_TYPES.bpmn.detect(content)) return "bpmn";
   if (DIAGRAM_TYPES.sequence.detect(content)) return "sequence";
+  if (DIAGRAM_TYPES.architecture.detect(content)) return "architecture";
+  if (DIAGRAM_TYPES.bpmn.detect(content)) return "bpmn";
   return "dbml";
 }
 
