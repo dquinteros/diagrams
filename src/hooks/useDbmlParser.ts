@@ -13,11 +13,15 @@ export function useDbmlParser(content: string): UseDbmlParserResult {
   const [parseError, setParseError] = useState<ParseError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic id so a slow parse resolving late can't overwrite a newer result.
+  const requestIdRef = useRef(0);
 
   const parse = useCallback(async (input: string) => {
+    const requestId = ++requestIdRef.current;
     setIsLoading(true);
     try {
       const result = await invoke<ParseResult>("parse_dbml", { input });
+      if (requestId !== requestIdRef.current) return;
       if (result.schema) {
         setSchema(result.schema);
         setParseError(null);
@@ -25,13 +29,14 @@ export function useDbmlParser(content: string): UseDbmlParserResult {
         setParseError(result.error);
       }
     } catch (e: unknown) {
+      if (requestId !== requestIdRef.current) return;
       const message = e instanceof Error ? e.message : String(e);
       setParseError({
         message: `IPC error: ${message}`,
         span: null,
       });
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) setIsLoading(false);
     }
   }, []);
 

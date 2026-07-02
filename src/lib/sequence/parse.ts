@@ -123,9 +123,17 @@ export function parseSequence(input: string): SequenceParseResult {
 }
 
 function parseMessage(line: string): Extract<SeqEvent, { kind: "message" }> | null {
+  // Pick the arrow occurring earliest in the line so an arrow-like token in the
+  // message text never wins over the real arrow. ARROWS is ordered longest-first,
+  // so ties at the same index resolve to the longer token ("-->>" over "-->").
+  let best: { token: string; kind: ArrowKind; idx: number } | null = null;
   for (const { token, kind } of ARROWS) {
     const idx = line.indexOf(token);
     if (idx <= 0) continue;
+    if (!best || idx < best.idx) best = { token, kind, idx };
+  }
+  if (best) {
+    const { token, kind, idx } = best;
     const from = line.slice(0, idx).trim();
     let rest = line.slice(idx + token.length);
     let activate = false;
@@ -145,3 +153,4 @@ function parseMessage(line: string): Extract<SeqEvent, { kind: "message" }> | nu
   }
   return null;
 }
+

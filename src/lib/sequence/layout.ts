@@ -195,20 +195,45 @@ export function layoutSequence(ir: SequenceIR): SeqLayout {
   }
 
   const height = y + BOTTOM_MARGIN;
-  const width = participants.length
-    ? participants[participants.length - 1].cx + COL_W / 2 + MARGIN_X
+
+  // Notes placed left of the first participant can extend into negative x and
+  // notes right of the last one past the participant-based width; shift all
+  // geometry right so nothing starts before MARGIN_X, then grow the width to
+  // cover the rightmost note.
+  const minNoteX = notes.length ? Math.min(...notes.map((n) => n.x)) : Infinity;
+  const shift = minNoteX < MARGIN_X ? MARGIN_X - minNoteX : 0;
+  const shiftedParticipants = shift
+    ? participants.map((p) => ({ ...p, cx: p.cx + shift }))
+    : participants;
+  const shiftedMessages = shift
+    ? messages.map((m) => ({ ...m, x1: m.x1 + shift, x2: m.x2 + shift }))
+    : messages;
+  const shiftedNotes = shift ? notes.map((n) => ({ ...n, x: n.x + shift })) : notes;
+  const shiftedActivations = shift
+    ? activations.map((a) => ({ ...a, x: a.x + shift }))
+    : activations;
+  const shiftedFragments = shift
+    ? fragments.map((f) => ({ ...f, x: f.x + shift }))
+    : fragments;
+
+  const participantWidth = shiftedParticipants.length
+    ? shiftedParticipants[shiftedParticipants.length - 1].cx + COL_W / 2 + MARGIN_X
     : MARGIN_X * 2 + COL_W;
+  const maxNoteRight = shiftedNotes.length
+    ? Math.max(...shiftedNotes.map((n) => n.x + n.w))
+    : 0;
+  const width = Math.max(participantWidth, maxNoteRight + MARGIN_X);
 
   return {
     width,
     height,
     lifelineTop,
     lifelineBottom: height - BOTTOM_MARGIN / 2,
-    participants,
-    messages,
-    notes,
-    activations,
-    fragments,
+    participants: shiftedParticipants,
+    messages: shiftedMessages,
+    notes: shiftedNotes,
+    activations: shiftedActivations,
+    fragments: shiftedFragments,
   };
 }
 

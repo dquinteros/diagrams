@@ -16,7 +16,6 @@ interface UseViewTransformResult {
   zoomOut: () => void;
   fitToScreen: () => void;
   zoomPercentage: number;
-  handleWheel: (e: React.WheelEvent) => void;
   handleMouseDown: (e: React.MouseEvent) => void;
   handleMouseMove: (e: React.MouseEvent) => void;
   handleMouseUp: () => void;
@@ -56,7 +55,9 @@ export function useViewTransform(
 
   const fitToScreen = useCallback(() => {
     const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || layout.nodes.size === 0) return;
+    // Guard on the bounds, not node count: non-DBML canvases pass an empty
+    // node map but still have real width/height.
+    if (!rect || layout.width <= 0 || layout.height <= 0) return;
 
     const scale = Math.min(
       (rect.width - 80) / layout.width,
@@ -81,21 +82,28 @@ export function useViewTransform(
     }));
   }, []);
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    setTransform((prev) => {
-      const newScale = Math.max(0.1, Math.min(3.0, prev.scale * factor));
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect) return { ...prev, scale: newScale };
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      return {
-        x: mx - (mx - prev.x) * (newScale / prev.scale),
-        y: my - (my - prev.y) * (newScale / prev.scale),
-        scale: newScale,
-      };
-    });
+  // Zoom on wheel via a native non-passive listener: React 17+ attaches
+  // `wheel` passively, so preventDefault inside an onWheel prop is a no-op.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      setTransform((prev) => {
+        const newScale = Math.max(0.1, Math.min(3.0, prev.scale * factor));
+        const rect = el.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        return {
+          x: mx - (mx - prev.x) * (newScale / prev.scale),
+          y: my - (my - prev.y) * (newScale / prev.scale),
+          scale: newScale,
+        };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -121,9 +129,18 @@ export function useViewTransform(
     setIsPanning(false);
   }, []);
 
+  // Pending debounced camera save, flushed on tab switch and unmount so the
+  // last pan/zoom isn't lost when its 400ms timer gets cleared.
+  const pendingSaveRef = useRef<{ key: string; t: ViewTransform } | null>(null);
+
   // Restore persisted camera when the active file changes.
   useEffect(() => {
     if (storageKey !== prevKeyRef.current) {
+      const pending = pendingSaveRef.current;
+      if (pending && pending.key === prevKeyRef.current) {
+        saveTransform(pending.key, pending.t);
+        pendingSaveRef.current = null;
+      }
       prevKeyRef.current = storageKey;
       setTransform(loadTransform(storageKey) ?? { x: 40, y: 40, scale: 1 });
     }
@@ -131,9 +148,22 @@ export function useViewTransform(
 
   // Persist camera (debounced) so pan/zoom survives reloads.
   useEffect(() => {
-    const timer = setTimeout(() => saveTransform(storageKey, transform), 400);
+    pendingSaveRef.current = { key: storageKey, t: transform };
+    const timer = setTimeout(() => {
+      saveTransform(storageKey, transform);
+      pendingSaveRef.current = null;
+    }, 400);
     return () => clearTimeout(timer);
   }, [transform, storageKey]);
+
+  // Flush any pending save on unmount.
+  useEffect(
+    () => () => {
+      const pending = pendingSaveRef.current;
+      if (pending) saveTransform(pending.key, pending.t);
+    },
+    []
+  );
 
   return {
     transform,
@@ -143,7 +173,6 @@ export function useViewTransform(
     zoomOut,
     fitToScreen,
     zoomPercentage: Math.round(transform.scale * 100),
-    handleWheel,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,

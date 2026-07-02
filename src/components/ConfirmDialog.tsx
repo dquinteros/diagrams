@@ -36,7 +36,11 @@ export function ConfirmDialog({ title, message, buttons, onClose }: ConfirmDialo
 
   return (
     <div
-      onClick={onClose}
+      // Close on mousedown that starts on the backdrop itself, so a click
+      // started inside the dialog and released outside doesn't dismiss it.
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -48,7 +52,6 @@ export function ConfirmDialog({ title, message, buttons, onClose }: ConfirmDialo
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           backgroundColor: theme.tableBg,
           border: `1px solid ${theme.controlBorder}`,

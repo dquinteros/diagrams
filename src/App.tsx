@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CodeEditor, type CodeEditorHandle } from "./components/Editor/CodeEditor";
 import { languageExtensionsFor } from "./components/Editor/languages";
 import { findTableAtOffset } from "./lib/findTableAtOffset";
+import { utf16ToUtf8Offset, utf8ToUtf16Offset } from "./lib/textOffsets";
 import { DiagramView } from "./components/DiagramView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { defaultContentFor, DIAGRAM_TYPES } from "./lib/diagramTypes";
@@ -145,7 +146,7 @@ function App() {
     async (doc: Doc): Promise<string | null> => {
       const saved = await fileOps.saveFile(doc.content, doc.filePath);
       if (saved) {
-        docs.markSaved(doc.id, saved);
+        docs.markSaved(doc.id, saved, doc.content);
         rememberRecent(saved);
       }
       return saved;
@@ -158,7 +159,7 @@ function App() {
   const handleSaveAs = useCallback(async () => {
     const saved = await fileOps.saveFile(activeDoc.content, null);
     if (saved) {
-      docs.markSaved(activeId, saved);
+      docs.markSaved(activeId, saved, activeDoc.content);
       rememberRecent(saved);
     }
   }, [fileOps, docs, activeId, activeDoc.content, rememberRecent]);
@@ -292,18 +293,20 @@ function App() {
       if (cursorTimerRef.current) clearTimeout(cursorTimerRef.current);
       cursorTimerRef.current = setTimeout(() => {
         if (!schema) return;
-        const tableName = findTableAtOffset(schema, offset);
+        // CodeMirror reports UTF-16 offsets; parser spans are UTF-8 bytes.
+        const tableName = findTableAtOffset(schema, utf16ToUtf8Offset(content, offset));
         setHighlightedTable(tableName);
       }, 100);
     },
-    [schema]
+    [schema, content]
   );
 
   const handleNavigateToSource = useCallback(
     (spanRange: [number, number]) => {
-      editorRef.current?.scrollToOffset(spanRange[0]);
+      // Parser spans are UTF-8 bytes; CodeMirror expects UTF-16 offsets.
+      editorRef.current?.scrollToOffset(utf8ToUtf16Offset(content, spanRange[0]));
     },
-    []
+    [content]
   );
 
   const toggleDetailLevel = useCallback(() => {
@@ -363,7 +366,7 @@ function App() {
         autosaveInFlight.current.add(d.id);
         try {
           await fileOps.saveFile(d.content, d.filePath!);
-          docs.markSaved(d.id, d.filePath!);
+          docs.markSaved(d.id, d.filePath!, d.content);
         } catch {
           // Ignore autosave failures; manual save still surfaces errors.
         } finally {
@@ -394,6 +397,7 @@ function App() {
     // Tauri-only API; skip when running in a plain browser.
     if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
     const win = getCurrentWindow();
     win
       .onCloseRequested((event) => {
@@ -433,9 +437,13 @@ function App() {
         });
       })
       .then((fn) => {
-        unlisten = fn;
+        // Registration resolves async: if the effect was cleaned up first,
+        // unlisten immediately instead of leaking a duplicate handler.
+        if (cancelled) fn();
+        else unlisten = fn;
       });
     return () => {
+      cancelled = true;
       if (unlisten) unlisten();
     };
   }, []);
@@ -463,18 +471,22 @@ function App() {
     setIsDraggingDivider(true);
   }, []);
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDraggingDivider) return;
+  // Track the divider drag on window so releasing the button outside the app
+  // window still ends the drag.
+  useEffect(() => {
+    if (!isDraggingDivider) return;
+    const handleMove = (e: MouseEvent) => {
       const pct = (e.clientX / window.innerWidth) * 100;
       setDividerPos(Math.max(15, Math.min(85, pct)));
-    },
-    [isDraggingDivider]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsDraggingDivider(false);
-  }, []);
+    };
+    const handleUp = () => setIsDraggingDivider(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [isDraggingDivider]);
 
   return (
     <div
@@ -486,8 +498,6 @@ function App() {
         overflow: "hidden",
         backgroundColor: theme.canvasBg,
       }}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
     >
       <Toolbar
         parseError={activeError}

@@ -68,10 +68,10 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <svg
         ref={vt.svgRef}
+        data-diagram-svg
         width="100%"
         height="100%"
         style={{ backgroundColor: theme.canvasBg, cursor }}
-        onWheel={vt.handleWheel}
         onMouseDown={vt.handleMouseDown}
         onMouseMove={vt.handleMouseMove}
         onMouseUp={vt.handleMouseUp}

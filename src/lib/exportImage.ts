@@ -8,7 +8,9 @@ const MARGIN = 40;
 
 /** Clone the live diagram SVG, sized to the full diagram bounds (no pan/zoom). */
 function buildExportSvg(width: number, height: number): SVGSVGElement | null {
-  const svgEl = document.querySelector("svg");
+  // Target the diagram canvas specifically — toolbar icons are also inline
+  // <svg> elements and appear earlier in the document.
+  const svgEl = document.querySelector("svg[data-diagram-svg]");
   if (!svgEl) return null;
 
   const clone = svgEl.cloneNode(true) as SVGSVGElement;

@@ -100,11 +100,16 @@ export function DiagramCanvas({
     (e: React.MouseEvent) => {
       const ds = dragStateRef.current;
       if (ds) {
-        const dx = (e.clientX - ds.startMouseX) / vt.transform.scale;
-        const dy = (e.clientY - ds.startMouseY) / vt.transform.scale;
-        if (!ds.moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
+        // Threshold in screen pixels so click-vs-drag doesn't depend on zoom.
+        const sdx = e.clientX - ds.startMouseX;
+        const sdy = e.clientY - ds.startMouseY;
+        if (!ds.moved && Math.abs(sdx) + Math.abs(sdy) < DRAG_THRESHOLD) return;
         ds.moved = true;
-        np.moveNode(ds.tableName, ds.startNodeX + dx, ds.startNodeY + dy);
+        np.moveNode(
+          ds.tableName,
+          ds.startNodeX + sdx / vt.transform.scale,
+          ds.startNodeY + sdy / vt.transform.scale
+        );
       } else {
         vt.handleMouseMove(e);
       }
@@ -166,10 +171,10 @@ export function DiagramCanvas({
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <svg
         ref={vt.svgRef}
+        data-diagram-svg
         width="100%"
         height="100%"
         style={{ backgroundColor: theme.canvasBg, cursor }}
-        onWheel={vt.handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

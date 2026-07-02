@@ -31,7 +31,12 @@ export function ImportSqlModal({ onImport, onClose }: ImportSqlModalProps) {
 
   return (
     <div
-      onClick={onClose}
+      // Close on mousedown that starts on the backdrop itself: a click that
+      // starts inside the dialog (e.g. selecting text in the textarea) and is
+      // released over the backdrop must not discard the modal.
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -43,7 +48,6 @@ export function ImportSqlModal({ onImport, onClose }: ImportSqlModalProps) {
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           backgroundColor: theme.tableBg,
           border: `1px solid ${theme.controlBorder}`,

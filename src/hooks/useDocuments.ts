@@ -23,7 +23,7 @@ export interface UseDocumentsResult {
   setActive: (id: string) => void;
   updateContent: (id: string, content: string) => void;
   replaceContent: (id: string, content: string) => void;
-  markSaved: (id: string, filePath: string) => void;
+  markSaved: (id: string, filePath: string, savedContent: string) => void;
   hydrateDoc: (id: string, content: string) => void;
 }
 
@@ -150,9 +150,15 @@ export function useDocuments(initialContent: string): UseDocumentsResult {
     );
   }, []);
 
-  const markSaved = useCallback((id: string, filePath: string) => {
+  // Clear the dirty flag only if the doc still matches what was written to
+  // disk; edits made while the save was in flight must stay marked unsaved.
+  const markSaved = useCallback((id: string, filePath: string, savedContent: string) => {
     setDocs((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, filePath, isDirty: false } : d))
+      prev.map((d) =>
+        d.id === id
+          ? { ...d, filePath, isDirty: d.content !== savedContent ? d.isDirty : false }
+          : d
+      )
     );
   }, []);
 

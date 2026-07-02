@@ -78,7 +78,15 @@ export function computeBpmnLayout(ir: BpmnIR): BpmnCanvasLayout {
   };
 
   const rank = rankNodes(ir);
-  const startX = (useLanes ? LANE_LABEL_W : 0) + PAD_X;
+  // startX is the *center* of column 0, so pad by half the widest node in
+  // that column to keep left edges out of negative x / the lane-label strip.
+  const firstColHalfW = Math.max(
+    0,
+    ...ir.nodes
+      .filter((n) => (rank.get(n.id) ?? 0) === 0)
+      .map((n) => bpmnNodeSize(n.kind).w / 2)
+  );
+  const startX = (useLanes ? LANE_LABEL_W : 0) + PAD_X + firstColHalfW;
 
   // Bucket nodes by lane → column to stack same-column siblings vertically.
   type Bucket = Map<number, string[]>; // col -> node ids

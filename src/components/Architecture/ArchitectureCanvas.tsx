@@ -63,10 +63,10 @@ export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasPro
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <svg
         ref={vt.svgRef}
+        data-diagram-svg
         width="100%"
         height="100%"
         style={{ backgroundColor: theme.canvasBg, cursor: vt.isPanning ? "grabbing" : "grab" }}
-        onWheel={vt.handleWheel}
         onMouseDown={onBgDown}
         onMouseMove={vt.handleMouseMove}
         onMouseUp={vt.handleMouseUp}

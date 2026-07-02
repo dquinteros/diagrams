@@ -108,7 +108,7 @@ export const DIAGRAM_TYPES: Record<DiagramType, DiagramTypeInfo> = {
     A-->>U: 200 OK
   end
 `,
-    detect: (c) => /^\s*sequenceDiagram\b/m.test(c),
+    detect: (c) => /^\s*sequenceDiagram\b/im.test(c),
   },
   bpmn: {
     id: "bpmn",
@@ -136,7 +136,7 @@ gw -> ship : "yes"
 gw -> oos  : "no"
 ship -> done
 `,
-    detect: (c) => /^\s*(start|end|task|user|service|script|xor|and|event)\s+[A-Za-z_]/m.test(c) && /->/.test(c),
+    detect: (c) => /^\s*(start|end|task|user|service|script|xor|and|event)\s+[A-Za-z_]/im.test(c) && /->/.test(c),
   },
   architecture: {
     id: "architecture",
@@ -169,7 +169,7 @@ api      -> stripe : "REST"
 `,
     // Architecture-exclusive kinds (or a group block) together with a flow.
     detect: (c) =>
-      (/^\s*group\s+["']/m.test(c) ||
+      (/^\s*group\s+["']/im.test(c) ||
         /^\s*(database|db|queue|mq|cache|gateway|storage|external|person|system|container|component)\s+[A-Za-z_]/im.test(c)) &&
       /->/.test(c),
   },
