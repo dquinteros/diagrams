@@ -19,6 +19,7 @@ import {
 import { tags } from "@lezer/highlight";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { setDiagnostics, type Diagnostic } from "@codemirror/lint";
 import { useTheme } from "../../context/ThemeContext";
 import type { Theme } from "../../lib/themes";
 
@@ -80,6 +81,16 @@ export interface CodeEditorHandle {
   scrollToOffset: (offset: number) => void;
 }
 
+/**
+ * A parse error to surface inline. DBML errors carry a char `span`; the
+ * client-side parsers (sequence/bpmn/architecture) carry a 1-based `line`.
+ */
+export interface EditorDiagnostic {
+  message: string;
+  span?: [number, number] | null;
+  line?: number | null;
+}
+
 interface CodeEditorProps {
   initialValue: string;
   onChange: (value: string) => void;
@@ -92,10 +103,12 @@ interface CodeEditorProps {
    * changes since the value already equals the document.
    */
   syncValue?: string;
+  /** Active parse error to underline in the editor, or null to clear. */
+  diagnostic?: EditorDiagnostic | null;
 }
 
 export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
-  function CodeEditor({ initialValue, onChange, onCursorChange, languageExtensions, syncValue }, ref) {
+  function CodeEditor({ initialValue, onChange, onCursorChange, languageExtensions, syncValue, diagnostic }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
@@ -175,7 +188,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
       });
     }, [theme]);
 
-    // Reflect external content changes (e.g. BPMN modeler editing the XML).
+    // Reflect external content changes (e.g. loading a file into the tab).
     useEffect(() => {
       const view = viewRef.current;
       if (!view || syncValue === undefined) return;
@@ -184,6 +197,38 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
         view.dispatch({ changes: { from: 0, to: current.length, insert: syncValue } });
       }
     }, [syncValue]);
+
+    // Surface the active parse error as an inline red underline + hover tooltip.
+    // `setDiagnostics` self-enables the lint extension on first use.
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      const doc = view.state.doc;
+      const diags: Diagnostic[] = [];
+      if (diagnostic && doc.length > 0) {
+        let from: number;
+        let to: number;
+        if (diagnostic.span) {
+          from = Math.max(0, Math.min(diagnostic.span[0], doc.length));
+          to = Math.max(0, Math.min(diagnostic.span[1], doc.length));
+        } else {
+          const lineNo = Math.min(Math.max(diagnostic.line ?? 1, 1), doc.lines);
+          const line = doc.line(lineNo);
+          from = line.from;
+          to = line.to;
+        }
+        // A zero-width range renders nothing; widen it to the enclosing line.
+        if (to <= from) {
+          const line = doc.lineAt(Math.min(from, doc.length));
+          from = line.from;
+          to = line.to;
+        }
+        if (to > from) {
+          diags.push({ from, to, severity: "error", message: diagnostic.message });
+        }
+      }
+      view.dispatch(setDiagnostics(view.state, diags));
+    }, [diagnostic]);
 
     return (
       <div ref={containerRef} style={{ height: "100%", overflow: "hidden" }} />

@@ -2,10 +2,11 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { CodeEditor, type CodeEditorHandle } from "./components/Editor/CodeEditor";
+import { CodeEditor, type CodeEditorHandle, type EditorDiagnostic } from "./components/Editor/CodeEditor";
 import { languageExtensionsFor } from "./components/Editor/languages";
 import { findTableAtOffset } from "./lib/findTableAtOffset";
 import { utf16ToUtf8Offset, utf8ToUtf16Offset } from "./lib/textOffsets";
+import { basename } from "./lib/paths";
 import { DiagramView } from "./components/DiagramView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { defaultContentFor, DIAGRAM_TYPES } from "./lib/diagramTypes";
@@ -126,6 +127,15 @@ function App() {
       ? { message: otherError.message, span: null as [number, number] | null }
       : null;
 
+  // Inline editor underline: DBML errors carry a char span; the client-side
+  // parsers carry a 1-based line number.
+  const editorDiagnostic = useMemo<EditorDiagnostic | null>(() => {
+    if (isDbml) {
+      return parseError ? { message: parseError.message, span: parseError.span } : null;
+    }
+    return otherError ? { message: otherError.message, line: otherError.line } : null;
+  }, [isDbml, parseError, otherError]);
+
   const [dividerPos, setDividerPos] = useState(40);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
 
@@ -195,7 +205,7 @@ function App() {
         docs.closeDoc(id);
         return;
       }
-      const label = doc.filePath ? doc.filePath.split("/").pop() : "Untitled";
+      const label = doc.filePath ? basename(doc.filePath) : "Untitled";
       setConfirm({
         title: "Unsaved changes",
         message: `"${label}" has unsaved changes. Save before closing?`,
@@ -581,6 +591,7 @@ function App() {
             onCursorChange={handleCursorChange}
             languageExtensions={languageExtensions}
             syncValue={content}
+            diagnostic={editorDiagnostic}
           />
         </div>
         {/* Signature: the panel divider is a precision tick-rule — the one
