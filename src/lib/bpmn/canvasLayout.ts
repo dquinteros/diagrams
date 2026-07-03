@@ -179,18 +179,17 @@ export function computeBpmnLayout(ir: BpmnIR): BpmnCanvasLayout {
   }
 
   const maxRight = Math.max(startX, ...[...geom.values()].map((g) => g.x + g.w));
-  const width = maxRight + PAD_X + (useLanes ? 0 : 0);
-  const contentBottom = acc + (useLanes ? 0 : PAD_Y);
-  const height = contentBottom + (useLanes ? 0 : 0);
+  const width = maxRight + PAD_X;
+  const height = acc + (useLanes ? 0 : PAD_Y);
 
   const lanes: BpmnLaneBand[] = useLanes
-    ? laneList.map((name, i) => ({
-        name,
-        x: 0,
-        y: laneTops[i],
-        w: width,
-        h: laneHeights[i],
-      }))
+    ? laneList.flatMap((name, i) =>
+        // The "" entry is the catch-all lane for un-laned nodes: keep it in
+        // laneList for positioning, but don't render a blank titled band.
+        name === ""
+          ? []
+          : [{ name, x: 0, y: laneTops[i], w: width, h: laneHeights[i] }]
+      )
     : [];
 
   return { lanes, nodes: [...geom.values()], edges, width, height };
