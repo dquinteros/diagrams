@@ -1,4 +1,5 @@
 import type { ParseError } from "../../types/schema";
+import { basename } from "../../lib/paths";
 import { ExportMenu } from "./ExportMenu";
 import { ImportMenu } from "./ImportMenu";
 import { RecentMenu } from "./RecentMenu";
@@ -59,10 +60,7 @@ export function Toolbar({
 }: ToolbarProps) {
   const { theme, themeId, toggleTheme } = useTheme();
 
-  // Split on both separators — Windows paths use backslashes.
-  const fileName = filePath
-    ? filePath.split(/[\\/]/).pop() ?? "Untitled"
-    : "Untitled";
+  const fileName = filePath ? basename(filePath) : "Untitled";
 
   const iconBtnStyle: React.CSSProperties = {
     background: theme.controlBg,
