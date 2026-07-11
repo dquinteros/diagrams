@@ -1,3 +1,9 @@
+:root {
+  /* Instrument mono: the tool speaks in a single, deliberate monospace voice. */
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
+    "Roboto Mono", Menlo, Consolas, monospace;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -7,9 +13,19 @@
 body {
   margin: 0;
   overflow: hidden;
-  background-color: #11111b;
+  /* Warm graphite drawing board (matches darkTheme canvasBg). */
+  background-color: #1b1b20;
+  font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Instrument-panel micro-label: uppercase, tracked, tabular figures. */
+.instrument-label {
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 #root {

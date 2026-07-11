@@ -26,7 +26,7 @@ export function ImportSqlModal({ onImport, onClose }: ImportSqlModalProps) {
     borderRadius: 4,
     cursor: "pointer",
     fontSize: 12,
-    fontFamily: "monospace",
+    fontFamily: "var(--font-mono)",
   };
 
   return (
@@ -58,7 +58,7 @@ export function ImportSqlModal({ onImport, onClose }: ImportSqlModalProps) {
           display: "flex",
           flexDirection: "column",
           gap: 12,
-          fontFamily: "monospace",
+          fontFamily: "var(--font-mono)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
         }}
       >
@@ -77,7 +77,7 @@ export function ImportSqlModal({ onImport, onClose }: ImportSqlModalProps) {
               padding: "4px 8px",
               borderRadius: 4,
               fontSize: 12,
-              fontFamily: "monospace",
+              fontFamily: "var(--font-mono)",
             }}
           >
             {DIALECTS.map((d) => (
@@ -103,7 +103,7 @@ export function ImportSqlModal({ onImport, onClose }: ImportSqlModalProps) {
             padding: 10,
             borderRadius: 4,
             fontSize: 12,
-            fontFamily: "monospace",
+            fontFamily: "var(--font-mono)",
             boxSizing: "border-box",
           }}
         />

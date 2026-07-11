@@ -14,7 +14,8 @@ interface TabBarProps {
 
 function tabName(doc: Doc): string {
   if (!doc.filePath) return "Untitled";
-  return doc.filePath.split("/").pop() ?? "Untitled";
+  // Split on both separators — Windows paths use backslashes.
+  return doc.filePath.split(/[\\/]/).pop() ?? "Untitled";
 }
 
 export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps) {
@@ -38,7 +39,7 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
         backgroundColor: theme.toolbarBg,
         borderBottom: `1px solid ${theme.toolbarBorder}`,
         height: 32,
-        fontFamily: "monospace",
+        fontFamily: "var(--font-mono)",
         fontSize: 12,
         flexShrink: 0,
         // NOTE: no overflow here — it would clip the new-tab dropdown. The
@@ -56,11 +57,13 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
               display: "flex",
               alignItems: "center",
               gap: 6,
-              padding: "0 10px",
+              padding: "0 12px",
               cursor: "pointer",
               borderRight: `1px solid ${theme.toolbarBorder}`,
               backgroundColor: isActive ? theme.editorBg : "transparent",
               color: isActive ? theme.toolbarText : theme.toolbarTextMuted,
+              // Active tab carries an accent registration strip along its top.
+              boxShadow: isActive ? `inset 0 2px 0 ${theme.toolbarAccent}` : "none",
               whiteSpace: "nowrap",
               maxWidth: 200,
             }}
@@ -68,8 +71,19 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
           >
             <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
               {tabName(doc)}
-              {doc.isDirty ? " •" : ""}
             </span>
+            {doc.isDirty && (
+              <span
+                aria-label="unsaved changes"
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  backgroundColor: theme.toolbarAccent,
+                  flexShrink: 0,
+                }}
+              />
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -142,7 +156,7 @@ export function TabBar({ docs, activeId, onSelect, onClose, onNew }: TabBarProps
                   padding: "6px 12px",
                   cursor: "pointer",
                   fontSize: 12,
-                  fontFamily: "monospace",
+                  fontFamily: "var(--font-mono)",
                   textAlign: "left",
                 }}
                 onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}

@@ -83,7 +83,7 @@ export function ExportMenu({ showSql, onExportSql, onExportSvg, onExportPng, onE
         >
           {showSql && (
             <>
-              <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
+              <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "var(--font-mono)" }}>
                 Export SQL
               </div>
               {DIALECTS.map((d) => (
@@ -99,7 +99,7 @@ export function ExportMenu({ showSql, onExportSql, onExportSvg, onExportPng, onE
                     padding: "6px 12px",
                     cursor: "pointer",
                     fontSize: 12,
-                    fontFamily: "monospace",
+                    fontFamily: "var(--font-mono)",
                     textAlign: "left",
                   }}
                   onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
@@ -111,7 +111,7 @@ export function ExportMenu({ showSql, onExportSql, onExportSvg, onExportPng, onE
               <div style={{ borderTop: `1px solid ${theme.controlBorder}`, margin: "4px 0" }} />
             </>
           )}
-          <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "monospace" }}>
+          <div style={{ padding: "4px 12px", fontSize: 10, color: theme.toolbarTextMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "var(--font-mono)" }}>
             Export Image
           </div>
           {IMAGE_FORMATS.map((f) => (
@@ -127,7 +127,7 @@ export function ExportMenu({ showSql, onExportSql, onExportSvg, onExportPng, onE
                 padding: "6px 12px",
                 cursor: "pointer",
                 fontSize: 12,
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 textAlign: "left",
               }}
               onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}

@@ -23,7 +23,7 @@ export function ConfirmDialog({ title, message, buttons, onClose }: ConfirmDialo
       borderRadius: 4,
       cursor: "pointer",
       fontSize: 12,
-      fontFamily: "monospace",
+      fontFamily: "var(--font-mono)",
     };
     if (variant === "primary") {
       return { ...base, background: theme.toolbarAccent, color: "#fff", borderColor: theme.toolbarAccent };
@@ -62,7 +62,7 @@ export function ConfirmDialog({ title, message, buttons, onClose }: ConfirmDialo
           display: "flex",
           flexDirection: "column",
           gap: 14,
-          fontFamily: "monospace",
+          fontFamily: "var(--font-mono)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
         }}
       >

@@ -94,7 +94,7 @@ export function SearchBar({
           padding: "6px 8px",
           color: theme.toolbarText,
           fontSize: 12,
-          fontFamily: "monospace",
+          fontFamily: "var(--font-mono)",
           outline: "none",
           boxSizing: "border-box",
         }}
@@ -114,7 +114,7 @@ export function SearchBar({
                 padding: "4px 8px",
                 cursor: "pointer",
                 fontSize: 12,
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 textAlign: "left",
                 borderRadius: 2,
               }}

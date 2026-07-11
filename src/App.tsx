@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "./lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CodeEditor, type CodeEditorHandle } from "./components/Editor/CodeEditor";
 import { languageExtensionsFor } from "./components/Editor/languages";
@@ -61,8 +62,12 @@ function App() {
   // Only DBML uses the Rust parser; other types render client-side.
   const isDbml = activeDoc.type === "dbml";
   const { schema, parseError, isLoading } = useDbmlParser(isDbml ? content : "");
+  // Kept current for the autocomplete extension, which reads it in an event
+  // handler — update in an effect rather than during render (render must be pure).
   const schemaRef = useRef(schema);
-  schemaRef.current = schema;
+  useEffect(() => {
+    schemaRef.current = schema;
+  }, [schema]);
   const layout = useDiagramLayout(schema, rankdir, detailLevel);
   const fileOps = useFileOperations();
   const languageExtensions = useMemo(
@@ -322,19 +327,22 @@ function App() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey) {
-        if (e.key === "o") {
+        // With Shift held, e.key for a letter is uppercase ("S"), so compare
+        // case-insensitively — otherwise Cmd/Ctrl+Shift+S (Save As) never fires.
+        const k = e.key.toLowerCase();
+        if (k === "o") {
           e.preventDefault();
           handleOpen();
-        } else if (e.key === "s" && e.shiftKey) {
+        } else if (k === "s" && e.shiftKey) {
           e.preventDefault();
           handleSaveAs();
-        } else if (e.key === "s") {
+        } else if (k === "s") {
           e.preventDefault();
           handleSave();
-        } else if (e.key === "t") {
+        } else if (k === "t") {
           e.preventDefault();
           docs.newDoc("dbml", defaultContentFor("dbml"));
-        } else if (e.key === "w") {
+        } else if (k === "w") {
           e.preventDefault();
           requestCloseDoc(activeId);
         }
@@ -395,7 +403,7 @@ function App() {
   // Intercept the app window close to confirm unsaved changes.
   useEffect(() => {
     // Tauri-only API; skip when running in a plain browser.
-    if (!("__TAURI_INTERNALS__" in window)) return;
+    if (!isTauri()) return;
     let unlisten: (() => void) | undefined;
     let cancelled = false;
     const win = getCurrentWindow();
@@ -557,24 +565,47 @@ function App() {
             syncValue={content}
           />
         </div>
+        {/* Signature: the panel divider is a precision tick-rule — the one
+            control that adjusts the layout looks like a measuring instrument.
+            Ticks are painted with a repeating gradient; a knurled grip sits at
+            center and lights up in the accent while dragging. */}
         <div
           onMouseDown={handleDividerMouseDown}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize editor and canvas"
           style={{
-            width: 4,
-            backgroundColor: isDraggingDivider ? theme.dividerActive : theme.divider,
+            position: "relative",
+            width: 9,
+            backgroundColor: theme.toolbarBg,
+            borderLeft: `1px solid ${theme.toolbarBorder}`,
+            borderRight: `1px solid ${theme.toolbarBorder}`,
             cursor: "col-resize",
             flexShrink: 0,
-            transition: isDraggingDivider ? "none" : "background-color 0.2s",
+            backgroundImage: `repeating-linear-gradient(to bottom, ${
+              isDraggingDivider ? theme.dividerActive : theme.dividerHover
+            } 0, ${isDraggingDivider ? theme.dividerActive : theme.dividerHover} 1px, transparent 1px, transparent 7px)`,
+            backgroundPosition: "center",
+            backgroundSize: "5px 100%",
+            backgroundRepeat: "no-repeat",
+            transition: isDraggingDivider ? "none" : "background-image 0.15s",
           }}
-          onMouseEnter={(e) => {
-            if (!isDraggingDivider)
-              (e.target as HTMLElement).style.backgroundColor = theme.dividerHover;
-          }}
-          onMouseLeave={(e) => {
-            if (!isDraggingDivider)
-              (e.target as HTMLElement).style.backgroundColor = theme.divider;
-          }}
-        />
+        >
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 5,
+              height: 26,
+              borderRadius: 3,
+              backgroundColor: isDraggingDivider ? theme.dividerActive : theme.divider,
+              boxShadow: `0 0 0 3px ${theme.toolbarBg}`,
+            }}
+          />
+        </div>
         <div style={{ flex: 1, overflow: "hidden" }}>
           <ErrorBoundary key={`${activeId}-${activeDoc.type}`}>
           <DiagramView

@@ -37,7 +37,7 @@ export function ImportMenu({ onImportFile, onPasteSql }: ImportMenuProps) {
     color: theme.toolbarTextMuted,
     textTransform: "uppercase",
     letterSpacing: 1,
-    fontFamily: "monospace",
+    fontFamily: "var(--font-mono)",
   };
 
   const itemStyle: React.CSSProperties = {
@@ -49,7 +49,7 @@ export function ImportMenu({ onImportFile, onPasteSql }: ImportMenuProps) {
     padding: "6px 12px",
     cursor: "pointer",
     fontSize: 12,
-    fontFamily: "monospace",
+    fontFamily: "var(--font-mono)",
     textAlign: "left",
   };
 

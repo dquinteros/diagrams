@@ -42,7 +42,7 @@ export function ZoomControls({
     borderRadius: 4,
     cursor: "pointer",
     fontSize: 14,
-    fontFamily: "monospace",
+    fontFamily: "var(--font-mono)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -93,7 +93,7 @@ export function ZoomControls({
         style={{
           color: theme.toolbarTextMuted,
           fontSize: 11,
-          fontFamily: "monospace",
+          fontFamily: "var(--font-mono)",
           minWidth: 38,
           textAlign: "center",
           userSelect: "none",
