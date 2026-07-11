@@ -53,16 +53,31 @@ export function bpmnNodeSize(kind: BpmnNodeKind): { w: number; h: number } {
 function rankNodes(ir: BpmnIR): Map<string, number> {
   const rank = new Map<string, number>();
   for (const n of ir.nodes) rank.set(n.id, 0);
-  for (let i = 0; i < ir.nodes.length; i++) {
-    let changed = false;
-    for (const f of ir.flows) {
-      const r = (rank.get(f.from) ?? 0) + 1;
-      if (r > (rank.get(f.to) ?? 0)) {
-        rank.set(f.to, r);
-        changed = true;
+
+  const outgoing = new Map<string, { to: string }[]>();
+  for (const f of ir.flows) {
+    (outgoing.get(f.from) ?? outgoing.set(f.from, []).get(f.from)!).push(f);
+  }
+
+  // Worklist longest-path relaxation: O(V+E) on DAGs instead of the previous
+  // O(V×E) sweep. The per-node relaxation cap bounds cyclic inputs the same
+  // way the old fixed iteration count did.
+  const relaxCount = new Map<string, number>();
+  const maxRelax = ir.nodes.length;
+  const queue: string[] = ir.nodes.map((n) => n.id);
+  for (let head = 0; head < queue.length; head++) {
+    const from = queue[head];
+    const fromRank = rank.get(from) ?? 0;
+    for (const { to } of outgoing.get(from) ?? []) {
+      const candidate = fromRank + 1;
+      if (candidate > (rank.get(to) ?? 0)) {
+        const seen = relaxCount.get(to) ?? 0;
+        if (seen >= maxRelax) continue; // cycle guard
+        relaxCount.set(to, seen + 1);
+        rank.set(to, candidate);
+        queue.push(to);
       }
     }
-    if (!changed) break;
   }
   return rank;
 }
@@ -111,7 +126,8 @@ export function computeBpmnLayout(ir: BpmnIR): BpmnCanvasLayout {
   }
 
   const geom = new Map<string, BpmnPlacedNode>();
-  const node = (id: string) => ir.nodes.find((n) => n.id === id)!;
+  const byId = new Map(ir.nodes.map((n) => [n.id, n]));
+  const node = (id: string) => byId.get(id)!;
   for (let li = 0; li < laneBuckets.length; li++) {
     const bucket = laneBuckets[li];
     const bandTop = laneTops[li];
