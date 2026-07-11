@@ -9,6 +9,10 @@ export const RANK_SEP = 80;
 export const MARGIN_X = 40;
 export const MARGIN_Y = 40;
 
+// Below this zoom scale, column text is unreadable (<5px): tables render as
+// simple boxes (render-only LOD; layout geometry is untouched).
+export const LOD_BOX_SCALE = 0.4;
+
 // Sticky notes
 export const NOTE_WIDTH = 240;
 export const NOTE_LINE_HEIGHT = 18;

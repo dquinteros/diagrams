@@ -49,6 +49,9 @@ interface UseViewTransformResult extends TransformStore {
 const DEFAULT_TRANSFORM: ViewTransform = { x: 40, y: 40, scale: 1 };
 // After the last wheel event, wait this long before committing the zoom.
 const WHEEL_COMMIT_IDLE_MS = 150;
+// Mid-gesture commit cadence: lets viewport culling refresh while panning
+// long distances. Cheap because memoized nodes only re-render what changed.
+const GESTURE_COMMIT_MS = 200;
 
 export function useViewTransform(
   layout: LayoutResult,
@@ -80,13 +83,20 @@ export function useViewTransform(
     el.setAttribute("transform", `translate(${t.x}, ${t.y}) scale(${t.scale})`);
   }, []);
 
+  const lastCommitAtRef = useRef(0);
+
   // rAF-coalesced flush: one DOM write + one subscriber notification per frame
-  // no matter how many mousemove/wheel events arrived in between.
+  // no matter how many mousemove/wheel events arrived in between. Long gestures
+  // also commit periodically so culling can follow the camera.
   const flushFrame = useCallback(() => {
     rafRef.current = null;
     writeAttr();
     const t = liveRef.current;
     listenersRef.current.forEach((cb) => cb(t));
+    if (performance.now() - lastCommitAtRef.current >= GESTURE_COMMIT_MS) {
+      lastCommitAtRef.current = performance.now();
+      setCommitted(t);
+    }
   }, [writeAttr]);
 
   const applyLive = useCallback(
@@ -98,6 +108,7 @@ export function useViewTransform(
   );
 
   const commitTransform = useCallback(() => {
+    lastCommitAtRef.current = performance.now();
     setCommitted(liveRef.current);
   }, []);
 
@@ -105,9 +116,9 @@ export function useViewTransform(
     (action: React.SetStateAction<ViewTransform>, opts?: SetTransformOptions) => {
       const next = typeof action === "function" ? action(liveRef.current) : action;
       applyLive(next);
-      if (opts?.commit !== false) setCommitted(next);
+      if (opts?.commit !== false) commitTransform();
     },
-    [applyLive]
+    [applyLive, commitTransform]
   );
 
   const getTransform = useCallback(() => liveRef.current, []);

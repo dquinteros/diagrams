@@ -1,7 +1,9 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, useDeferredValue } from "react";
 import type { SchemaIR } from "../../types/schema";
 import type { LayoutResult, DetailLevel } from "../../types/layout";
 import { buildFkIndex } from "../../lib/layoutEngine";
+import { visibleRect, defaultOverscan, cullNodes, edgeVisible } from "../../lib/viewportCulling";
+import { LOD_BOX_SCALE } from "../../lib/constants";
 import { useViewTransform } from "../../hooks/useViewTransform";
 import { useNodePositions } from "../../hooks/useNodePositions";
 import { useTheme } from "../../context/ThemeContext";
@@ -66,6 +68,43 @@ export function DiagramCanvas({
 
   // FK columns per table, one pass over the refs (shared by every TableNode).
   const fkIndex = useMemo(() => buildFkIndex(schema), [schema]);
+
+  // Viewport size in CSS px, tracked so culling knows the visible rect.
+  const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const el = vt.svgRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setSvgSize({ width: r.width, height: r.height });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [vt.svgRef]);
+
+  // Viewport culling: recomputed on camera commits (gesture end + throttled
+  // mid-gesture commits); deferred so it never competes with input handling.
+  // The overscan hides the staleness between commits.
+  const deferredTransform = useDeferredValue(vt.transform);
+  const cullRect = useMemo(() => {
+    if (svgSize.width === 0) return null;
+    return visibleRect(
+      deferredTransform,
+      svgSize.width,
+      svgSize.height,
+      defaultOverscan(deferredTransform, svgSize.width)
+    );
+  }, [deferredTransform, svgSize]);
+  const visibleNodes = useMemo(
+    () => (cullRect ? cullNodes(np.nodes, cullRect) : null),
+    [np.nodes, cullRect]
+  );
+  const isNodeVisible = (id: string) => visibleNodes === null || visibleNodes.has(id);
+
+  // Render-only LOD: zoomed way out, tables collapse to boxes.
+  const lod = vt.transform.scale < LOD_BOX_SCALE ? ("box" as const) : ("full" as const);
 
   // Callbacks depend on the stable members of vt/np (not the container
   // objects, which change identity per render) so memoized nodes skip.
@@ -203,6 +242,7 @@ export function DiagramCanvas({
             <TableGroupRect key={group.name} group={group} nodes={np.nodes} />
           ))}
           {np.edges.map((edge, i) => {
+            if (cullRect && !edgeVisible(edge.points, cullRect)) return null;
             const connectedToTable =
               focusTable != null && (edge.from === focusTable || edge.to === focusTable);
             const isActive = connectedToTable || selectedEdge === i;
@@ -219,6 +259,7 @@ export function DiagramCanvas({
             );
           })}
           {schema.tables.map((table) => {
+            if (!isNodeVisible(table.name)) return null;
             const nodeLayout = np.nodes.get(table.name);
             if (!nodeLayout) return null;
             return (
@@ -233,10 +274,12 @@ export function DiagramCanvas({
                 onNavigateToSource={onNavigateToSource}
                 onHover={setHoverInfo}
                 detailLevel={detailLevel}
+                lod={lod}
               />
             );
           })}
           {schema.enums.map((enumBlock) => {
+            if (!isNodeVisible(`enum_${enumBlock.name}`)) return null;
             const nodeLayout = np.nodes.get(`enum_${enumBlock.name}`);
             if (!nodeLayout) return null;
             return (
@@ -251,6 +294,7 @@ export function DiagramCanvas({
             );
           })}
           {schema.notes.map((note, i) => {
+            if (!isNodeVisible(`note_${i}`)) return null;
             const nodeLayout = np.nodes.get(`note_${i}`);
             if (!nodeLayout) return null;
             return (

@@ -18,5 +18,11 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // False-positives on refs returned from custom hooks (e.g. passing
+      // `vt.svgRef` to a JSX `ref` prop): the rule can't see through the
+      // member access and flags standard, valid usage.
+      'react-hooks/refs': 'off',
+    },
   },
 ])

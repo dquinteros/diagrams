@@ -23,6 +23,9 @@ interface TableNodeProps {
   onNavigateToSource?: (spanRange: [number, number]) => void;
   onHover?: (info: { tableName: string; columnName?: string; x: number; y: number } | null) => void;
   detailLevel: DetailLevel;
+  /** Render level-of-detail: "box" (zoomed way out) skips column rows —
+   *  ~4 SVG elements instead of ~39 — while keeping the layout height. */
+  lod?: "full" | "box";
 }
 
 // Memoized: during hover/selection/drag only the affected tables re-render;
@@ -37,6 +40,7 @@ export const TableNode = memo(function TableNode({
   onNavigateToSource,
   onHover,
   detailLevel,
+  lod = "full",
 }: TableNodeProps) {
   const { theme } = useTheme();
 
@@ -47,6 +51,46 @@ export const TableNode = memo(function TableNode({
 
   const height =
     HEADER_HEIGHT + visibleColumns.length * ROW_HEIGHT + TABLE_PADDING * 2;
+
+  if (lod === "box") {
+    return (
+      <g
+        transform={`translate(${layout.x}, ${layout.y})`}
+        onMouseDown={(e) => onDragStart(table.name, e)}
+        onDoubleClick={() => onNavigateToSource?.(table.spanRange)}
+        style={{ cursor: "pointer", opacity: isDimmed ? 0.25 : 1 }}
+      >
+        <rect
+          width={TABLE_WIDTH}
+          height={height}
+          rx={TABLE_BORDER_RADIUS}
+          ry={TABLE_BORDER_RADIUS}
+          fill={theme.tableBg}
+          stroke={isSelected ? theme.tableBorderSelected : theme.tableBorder}
+          strokeWidth={isSelected ? 2 : 1}
+        />
+        <rect
+          width={TABLE_WIDTH}
+          height={HEADER_HEIGHT}
+          rx={TABLE_BORDER_RADIUS}
+          ry={TABLE_BORDER_RADIUS}
+          fill={table.headerColor ?? theme.tableHeader}
+        />
+        <text
+          x={TABLE_WIDTH / 2}
+          y={HEADER_HEIGHT / 2}
+          dominantBaseline="central"
+          textAnchor="middle"
+          fill={theme.headerText}
+          fontSize={13}
+          fontWeight="bold"
+          fontFamily="monospace"
+        >
+          {table.schema ? `${table.schema}.${table.name}` : table.name}
+        </text>
+      </g>
+    );
+  }
 
   return (
     <g
