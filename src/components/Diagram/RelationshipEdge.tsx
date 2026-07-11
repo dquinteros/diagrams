@@ -1,13 +1,16 @@
-import type { ReactElement } from "react";
+import { memo, useMemo, type ReactElement } from "react";
 import type { LayoutEdge } from "../../types/layout";
 import { useTheme } from "../../context/ThemeContext";
 
 interface RelationshipEdgeProps {
   edge: LayoutEdge;
+  /** Index in the canvas edge list; passed back through onSelect so the
+   *  callback can be shared by every edge (keeps the memo effective). */
+  index: number;
   isDimmed?: boolean;
   isHighlighted?: boolean;
   isAnimated?: boolean;
-  onSelect?: (e: React.MouseEvent) => void;
+  onSelect?: (index: number, e: React.MouseEvent) => void;
 }
 
 // Marker geometry (drawn outside the table edge).
@@ -56,15 +59,16 @@ function buildPath(points: Pt[]): string {
   return d;
 }
 
-export function RelationshipEdge({
+export const RelationshipEdge = memo(function RelationshipEdge({
   edge,
+  index,
   isDimmed,
   isHighlighted,
   isAnimated,
   onSelect,
 }: RelationshipEdgeProps) {
   const { theme } = useTheme();
-  const pathD = buildPath(edge.points);
+  const pathD = useMemo(() => buildPath(edge.points), [edge.points]);
   const strokeColor = isHighlighted ? theme.edgeLineHover : theme.edgeLine;
   const strokeWidth = isHighlighted ? 2.5 : 1.5;
   const start = edge.points[0];
@@ -133,7 +137,7 @@ export function RelationshipEdge({
         stroke="transparent"
         strokeWidth={14}
         style={{ cursor: onSelect ? "pointer" : "default" }}
-        onMouseDown={(e) => onSelect?.(e)}
+        onMouseDown={(e) => onSelect?.(index, e)}
       />
       <path
         className={isAnimated ? "edge-animated" : undefined}
@@ -147,4 +151,4 @@ export function RelationshipEdge({
       {toMarker}
     </g>
   );
-}
+});

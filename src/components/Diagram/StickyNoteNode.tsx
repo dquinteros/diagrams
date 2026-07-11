@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import type { NoteIR } from "../../types/schema";
 import type { LayoutNode } from "../../types/layout";
 import { useTheme } from "../../context/ThemeContext";
@@ -16,14 +17,14 @@ interface StickyNoteNodeProps {
   onNavigateToSource?: (spanRange: [number, number]) => void;
 }
 
-export function StickyNoteNode({
+export const StickyNoteNode = memo(function StickyNoteNode({
   note,
   layout,
   onDragStart,
   onNavigateToSource,
 }: StickyNoteNodeProps) {
   const { theme } = useTheme();
-  const lines = wrapNoteText(note.content);
+  const lines = useMemo(() => wrapNoteText(note.content), [note.content]);
 
   return (
     <g
@@ -75,4 +76,4 @@ export function StickyNoteNode({
       ))}
     </g>
   );
-}
+});

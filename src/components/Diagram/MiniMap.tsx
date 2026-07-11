@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { memo, useState, useCallback, useEffect } from "react";
 import type { LayoutNode } from "../../types/layout";
 import type {
   TransformStore,
@@ -117,19 +117,12 @@ export function MiniMap({
         onMouseLeave={endDrag}
       >
         <g transform={`translate(${MM_PADDING}, ${MM_PADDING})`}>
-          {Array.from(nodes.values()).map((node) => (
-            <rect
-              key={node.id}
-              x={node.x * scale}
-              y={node.y * scale}
-              width={Math.max(1, node.width * scale)}
-              height={Math.max(1, node.height * scale)}
-              fill={theme.tableHeader}
-              stroke={theme.tableBorder}
-              strokeWidth={0.5}
-              rx={1}
-            />
-          ))}
+          <MiniMapNodes
+            nodes={nodes}
+            scale={scale}
+            fill={theme.tableHeader}
+            stroke={theme.tableBorder}
+          />
           <MiniMapViewport
             store={store}
             svgWidth={svgSize.width}
@@ -142,3 +135,35 @@ export function MiniMap({
     </div>
   );
 }
+
+// One rect per diagram node; `nodes` changes identity only when a node is
+// dragged, so this subtree skips hover/selection/camera-commit re-renders.
+const MiniMapNodes = memo(function MiniMapNodes({
+  nodes,
+  scale,
+  fill,
+  stroke,
+}: {
+  nodes: Map<string, LayoutNode>;
+  scale: number;
+  fill: string;
+  stroke: string;
+}) {
+  return (
+    <>
+      {Array.from(nodes.values()).map((node) => (
+        <rect
+          key={node.id}
+          x={node.x * scale}
+          y={node.y * scale}
+          width={Math.max(1, node.width * scale)}
+          height={Math.max(1, node.height * scale)}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={0.5}
+          rx={1}
+        />
+      ))}
+    </>
+  );
+});

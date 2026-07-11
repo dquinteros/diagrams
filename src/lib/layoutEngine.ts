@@ -18,16 +18,28 @@ import {
 
 /** Columns that participate in a relationship for the given table. */
 export function getFkColumns(schema: SchemaIR, tableName: string): Set<string> {
-  const fkColumns = new Set<string>();
+  return buildFkIndex(schema).get(tableName) ?? new Set();
+}
+
+/**
+ * FK columns for every table in one pass over the refs — O(refs) instead of
+ * O(tables × refs) when the per-table variant is called in a loop.
+ */
+export function buildFkIndex(schema: SchemaIR): Map<string, Set<string>> {
+  const index = new Map<string, Set<string>>();
+  const add = (tableName: string, columns: string[]) => {
+    let set = index.get(tableName);
+    if (!set) {
+      set = new Set();
+      index.set(tableName, set);
+    }
+    columns.forEach((c) => set.add(c));
+  };
   for (const ref of schema.refs) {
-    if (ref.fromTable === tableName) {
-      ref.fromColumns.forEach((c) => fkColumns.add(c));
-    }
-    if (ref.toTable === tableName) {
-      ref.toColumns.forEach((c) => fkColumns.add(c));
-    }
+    add(ref.fromTable, ref.fromColumns);
+    add(ref.toTable, ref.toColumns);
   }
-  return fkColumns;
+  return index;
 }
 
 /** The columns actually rendered for a table at the given detail level. */
@@ -156,13 +168,10 @@ function chooseRouting(
  */
 function anchorY(
   node: LayoutNode,
-  table: TableIR,
-  schema: SchemaIR,
-  detailLevel: DetailLevel,
+  visibleColumns: ColumnIR[],
   columnName: string
 ): { y: number; anchored: boolean } {
-  const visible = getVisibleColumns(table, getFkColumns(schema, table.name), detailLevel);
-  const idx = visible.findIndex((c) => c.name === columnName);
+  const idx = visibleColumns.findIndex((c) => c.name === columnName);
   if (idx < 0) {
     return { y: node.y + node.height / 2, anchored: false };
   }
@@ -174,13 +183,11 @@ function anchorY(
 
 function makeEndpoint(
   node: LayoutNode,
-  table: TableIR,
-  schema: SchemaIR,
-  detailLevel: DetailLevel,
+  visibleColumns: ColumnIR[],
   columnName: string,
   side: "left" | "right"
 ): Endpoint {
-  const { y, anchored } = anchorY(node, table, schema, detailLevel, columnName);
+  const { y, anchored } = anchorY(node, visibleColumns, columnName);
   const x = side === "right" ? node.x + node.width : node.x;
   return { node, side, x, y, anchored };
 }
@@ -230,6 +237,20 @@ function buildEdges(
   nodes: Map<string, LayoutNode>,
   detailLevel: DetailLevel
 ): LayoutEdge[] {
+  // Shared lookups, built once: O(tables + refs) instead of a scan per ref.
+  const fkIndex = buildFkIndex(schema);
+  const tablesByName = new Map(schema.tables.map((t) => [t.name, t]));
+  const visibleByTable = new Map<string, ColumnIR[]>();
+  const visibleFor = (tableName: string): ColumnIR[] => {
+    let visible = visibleByTable.get(tableName);
+    if (!visible) {
+      const table = tablesByName.get(tableName)!;
+      visible = getVisibleColumns(table, fkIndex.get(tableName) ?? new Set(), detailLevel);
+      visibleByTable.set(tableName, visible);
+    }
+    return visible;
+  };
+
   // Pass A: resolve sides and preferred anchors.
   const raw: RawEdge[] = [];
   const endpoints: Endpoint[] = [];
@@ -237,14 +258,12 @@ function buildEdges(
     const fromNode = nodes.get(ref.fromTable);
     const toNode = nodes.get(ref.toTable);
     if (!fromNode || !toNode) continue;
-    const fromTable = schema.tables.find((t) => t.name === ref.fromTable)!;
-    const toTable = schema.tables.find((t) => t.name === ref.toTable)!;
 
     // Connect on facing sides (or route outside when the boxes overlap in X).
     const { fromSide, toSide, midX } = chooseRouting(fromNode, toNode);
 
-    const from = makeEndpoint(fromNode, fromTable, schema, detailLevel, ref.fromColumns[0] || "", fromSide);
-    const to = makeEndpoint(toNode, toTable, schema, detailLevel, ref.toColumns[0] || "", toSide);
+    const from = makeEndpoint(fromNode, visibleFor(ref.fromTable), ref.fromColumns[0] || "", fromSide);
+    const to = makeEndpoint(toNode, visibleFor(ref.toTable), ref.toColumns[0] || "", toSide);
     raw.push({ ref, from, to, midX });
     endpoints.push(from, to);
   }
@@ -288,8 +307,9 @@ export function computeLayout(
   });
   g.setDefaultEdgeLabel(() => ({}));
 
+  const fkIndex = buildFkIndex(schema);
   for (const table of schema.tables) {
-    const fk = getFkColumns(schema, table.name);
+    const fk = fkIndex.get(table.name) ?? new Set<string>();
     const visibleCount = getVisibleColumns(table, fk, options.detailLevel).length;
     g.setNode(table.name, {
       width: TABLE_WIDTH,

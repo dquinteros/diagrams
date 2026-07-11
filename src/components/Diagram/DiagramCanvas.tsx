@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import type { SchemaIR } from "../../types/schema";
 import type { LayoutResult, DetailLevel } from "../../types/layout";
+import { buildFkIndex } from "../../lib/layoutEngine";
 import { useViewTransform } from "../../hooks/useViewTransform";
 import { useNodePositions } from "../../hooks/useNodePositions";
 import { useTheme } from "../../context/ThemeContext";
@@ -34,6 +35,7 @@ interface DiagramCanvasProps {
 }
 
 const DRAG_THRESHOLD = 5;
+const EMPTY_FK_SET: Set<string> = new Set();
 
 export function DiagramCanvas({
   schema,
@@ -62,10 +64,24 @@ export function DiagramCanvas({
     moved: boolean;
   } | null>(null);
 
+  // FK columns per table, one pass over the refs (shared by every TableNode).
+  const fkIndex = useMemo(() => buildFkIndex(schema), [schema]);
+
+  // Callbacks depend on the stable members of vt/np (not the container
+  // objects, which change identity per render) so memoized nodes skip.
+  const { nodes: npNodes, startDrag, moveNode, endDrag } = np;
+  const {
+    handleMouseDown: vtMouseDown,
+    handleMouseMove: vtMouseMove,
+    handleMouseUp: vtMouseUp,
+    getTransform,
+    svgRef,
+  } = vt;
+
   const handleTableDragStart = useCallback(
     (tableName: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      const node = np.nodes.get(tableName);
+      const node = npNodes.get(tableName);
       if (!node) return;
       dragStateRef.current = {
         tableName,
@@ -75,17 +91,17 @@ export function DiagramCanvas({
         startNodeY: node.y,
         moved: false,
       };
-      np.startDrag(tableName);
+      startDrag(tableName);
     },
-    [np]
+    [npNodes, startDrag]
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (!dragStateRef.current) {
-        vt.handleMouseDown(e);
+        vtMouseDown(e);
         if (
-          e.target === vt.svgRef.current ||
+          e.target === svgRef.current ||
           (e.target as Element).classList.contains("canvas-bg")
         ) {
           setSelectedTable(null);
@@ -93,7 +109,7 @@ export function DiagramCanvas({
         }
       }
     },
-    [vt]
+    [vtMouseDown, svgRef]
   );
 
   const handleMouseMove = useCallback(
@@ -105,17 +121,17 @@ export function DiagramCanvas({
         const sdy = e.clientY - ds.startMouseY;
         if (!ds.moved && Math.abs(sdx) + Math.abs(sdy) < DRAG_THRESHOLD) return;
         ds.moved = true;
-        const scale = vt.getTransform().scale;
-        np.moveNode(
+        const scale = getTransform().scale;
+        moveNode(
           ds.tableName,
           ds.startNodeX + sdx / scale,
           ds.startNodeY + sdy / scale
         );
       } else {
-        vt.handleMouseMove(e);
+        vtMouseMove(e);
       }
     },
-    [vt, np]
+    [getTransform, moveNode, vtMouseMove]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -126,10 +142,10 @@ export function DiagramCanvas({
         setSelectedEdge(null);
       }
       dragStateRef.current = null;
-      np.endDrag();
+      endDrag();
     }
-    vt.handleMouseUp();
-  }, [vt, np]);
+    vtMouseUp();
+  }, [endDrag, vtMouseUp]);
 
   const handleEdgeSelect = useCallback((index: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -194,10 +210,11 @@ export function DiagramCanvas({
               <RelationshipEdge
                 key={`${edge.from}-${edge.to}-${i}`}
                 edge={edge}
+                index={i}
                 isDimmed={hasFocus && !isActive}
                 isHighlighted={isActive}
                 isAnimated={isActive}
-                onSelect={(e) => handleEdgeSelect(i, e)}
+                onSelect={handleEdgeSelect}
               />
             );
           })}
@@ -209,7 +226,7 @@ export function DiagramCanvas({
                 key={table.name}
                 table={table}
                 layout={nodeLayout}
-                schema={schema}
+                fkColumns={fkIndex.get(table.name) ?? EMPTY_FK_SET}
                 isSelected={activeTable === table.name}
                 isDimmed={relatedTables != null && !relatedTables.has(table.name)}
                 onDragStart={handleTableDragStart}

@@ -1,21 +1,26 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import type { LayoutResult, LayoutNode } from "../../types/layout";
 import type { SeqLayout, SeqLayoutMessage } from "../../lib/sequence/layout";
 import { SEQ_CONSTANTS } from "../../lib/sequence/layout";
-import type { ArrowKind } from "../../lib/sequence/types";
 import { useViewTransform } from "../../hooks/useViewTransform";
 import { useTheme } from "../../context/ThemeContext";
 import { ZoomControls } from "../Diagram/ZoomControls";
 import { MiniMap } from "../Diagram/MiniMap";
-import { TABLE_BORDER_RADIUS } from "../../lib/constants";
+import {
+  LifelineGlyph,
+  FragmentGlyph,
+  ActivationGlyph,
+  SeqNoteGlyph,
+  ParticipantGlyph,
+  MessageGlyph,
+} from "./SequenceGlyphs";
 
 interface SequenceCanvasProps {
   layout: SeqLayout;
   storageKey: string;
 }
 
-const { HEADER_TOP, HEADER_H, HEADER_W, ACT_W } = SEQ_CONSTANTS;
-const DIM = 0.2;
+const { HEADER_TOP, HEADER_W } = SEQ_CONSTANTS;
 
 export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
   const { theme } = useTheme();
@@ -57,10 +62,8 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
 
   const pActive = (id: string) => !related || related.has(id);
   const mActive = (m: SeqLayoutMessage) => !hovered || m.from === hovered || m.to === hovered;
-  const dimStyle = (active: boolean): React.CSSProperties => ({
-    opacity: active ? 1 : DIM,
-    transition: "opacity 0.15s",
-  });
+
+  const onHoverParticipant = useCallback((id: string | null) => setHovered(id), []);
 
   const cursor = vt.isPanning ? "grabbing" : "grab";
 
@@ -81,61 +84,23 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
         <g ref={vt.contentRef}>
           {/* Lifelines */}
           {layout.participants.map((p) => (
-            <line
+            <LifelineGlyph
               key={`life-${p.id}`}
-              x1={p.cx}
-              y1={layout.lifelineTop}
-              x2={p.cx}
-              y2={layout.lifelineBottom}
-              stroke={theme.edgeLine}
-              strokeWidth={1}
-              strokeDasharray="4 4"
-              style={dimStyle(pActive(p.id))}
+              cx={p.cx}
+              top={layout.lifelineTop}
+              bottom={layout.lifelineBottom}
+              active={pActive(p.id)}
             />
           ))}
 
           {/* Fragment frames */}
           {layout.fragments.map((f, i) => (
-            <g key={`frag-${i}`}>
-              <rect x={f.x} y={f.y} width={f.w} height={f.h} fill="none" stroke={theme.tableBorder} strokeWidth={1} rx={TABLE_BORDER_RADIUS} />
-              <path
-                d={`M ${f.x} ${f.y + 18} L ${f.x + 52} ${f.y + 18} L ${f.x + 44} ${f.y + 18 + 8} L ${f.x} ${f.y + 18 + 8} Z`}
-                fill={theme.tableHeader}
-                stroke={theme.tableBorder}
-                strokeWidth={1}
-              />
-              <text x={f.x + 6} y={f.y + 13} fill={theme.headerText} fontSize={10} fontWeight="bold" fontFamily="monospace">
-                {f.fragType}
-              </text>
-              {f.label && (
-                <text x={f.x + 58} y={f.y + 14} fill={theme.columnText} fontSize={11} fontFamily="monospace">
-                  [{f.label}]
-                </text>
-              )}
-              {f.elses.map((e, j) => (
-                <g key={j}>
-                  <line x1={f.x} y1={e.y} x2={f.x + f.w} y2={e.y} stroke={theme.tableBorder} strokeDasharray="3 3" />
-                  <text x={f.x + 6} y={e.y - 3} fill={theme.columnText} fontSize={11} fontFamily="monospace">
-                    [{e.label}]
-                  </text>
-                </g>
-              ))}
-            </g>
+            <FragmentGlyph key={`frag-${i}`} f={f} />
           ))}
 
           {/* Activation rectangles */}
           {layout.activations.map((a, i) => (
-            <rect
-              key={`act-${i}`}
-              x={a.x - ACT_W / 2}
-              y={a.y1}
-              width={ACT_W}
-              height={Math.max(8, a.y2 - a.y1)}
-              fill={theme.tableHeader}
-              stroke={theme.tableBorder}
-              strokeWidth={1}
-              style={dimStyle(pActive(a.id))}
-            />
+            <ActivationGlyph key={`act-${i}`} a={a} active={pActive(a.id)} />
           ))}
 
           {/* Messages */}
@@ -144,7 +109,6 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
               key={`msg-${i}`}
               m={m}
               dashed={m.arrow === "dashed-arrow" || m.arrow === "dashed-open"}
-              theme={theme}
               active={mActive(m)}
               highlighted={!!hovered && mActive(m)}
             />
@@ -152,52 +116,19 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
 
           {/* Notes */}
           {layout.notes.map((n, i) => (
-            <g key={`note-${i}`}>
-              <rect x={n.x} y={n.y} width={n.w} height={n.h} fill={theme.noteBg} stroke={theme.noteBorder} strokeWidth={1} rx={TABLE_BORDER_RADIUS} />
-              {n.lines.map((line, j) => (
-                <text key={j} x={n.x + n.w / 2} y={n.y + 14 + j * 16} textAnchor="middle" fill={theme.noteText} fontSize={11} fontFamily="monospace">
-                  {line}
-                </text>
-              ))}
-            </g>
+            <SeqNoteGlyph key={`note-${i}`} n={n} />
           ))}
 
           {/* Participant cards (top + bottom) */}
           {layout.participants.map((p) => (
-            <g
+            <ParticipantGlyph
               key={`hdr-${p.id}`}
-              style={{ cursor: "pointer", ...dimStyle(pActive(p.id)) }}
-              onMouseEnter={() => setHovered(p.id)}
-              onMouseLeave={() => setHovered(null)}
-            >
-              {[HEADER_TOP, layout.lifelineBottom].map((hy, k) => (
-                <g key={k}>
-                  <rect
-                    x={p.cx - HEADER_W / 2}
-                    y={hy}
-                    width={HEADER_W}
-                    height={HEADER_H}
-                    rx={TABLE_BORDER_RADIUS}
-                    ry={TABLE_BORDER_RADIUS}
-                    fill={theme.tableHeader}
-                    stroke={hovered === p.id ? theme.tableBorderSelected : theme.tableBorder}
-                    strokeWidth={hovered === p.id ? 2 : 1}
-                  />
-                  <text
-                    x={p.cx}
-                    y={hy + HEADER_H / 2}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fill={theme.headerText}
-                    fontSize={13}
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                  >
-                    {p.isActor ? `🧍 ${p.label}` : p.label}
-                  </text>
-                </g>
-              ))}
-            </g>
+              p={p}
+              lifelineBottom={layout.lifelineBottom}
+              hovered={hovered === p.id}
+              active={pActive(p.id)}
+              onHover={onHoverParticipant}
+            />
           ))}
         </g>
       </svg>
@@ -218,89 +149,4 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
       />
     </div>
   );
-}
-
-function MessageGlyph({
-  m,
-  dashed,
-  theme,
-  active,
-  highlighted,
-}: {
-  m: SeqLayoutMessage;
-  dashed: boolean;
-  theme: ReturnType<typeof useTheme>["theme"];
-  active: boolean;
-  highlighted: boolean;
-}) {
-  const color = highlighted ? theme.edgeLineHover : theme.edgeLine;
-  const width = highlighted ? 2.5 : 1.5;
-  const dash = dashed ? "5 4" : undefined;
-  const style: React.CSSProperties = { opacity: active ? 1 : DIM, transition: "opacity 0.15s" };
-
-  if (m.self) {
-    const x = m.x1;
-    const loopW = 36;
-    const top = m.y;
-    const bottom = m.y + 26;
-    return (
-      <g style={style}>
-        <path d={`M ${x} ${top} L ${x + loopW} ${top} L ${x + loopW} ${bottom} L ${x} ${bottom}`} fill="none" stroke={color} strokeWidth={width} strokeDasharray={dash} />
-        <Arrowhead x={x} y={bottom} dir="left" kind={m.arrow} color={color} />
-        {m.text && (
-          <text x={x + loopW + 6} y={top + 4} fill={theme.columnText} fontSize={11} fontFamily="monospace">
-            {m.text}
-          </text>
-        )}
-      </g>
-    );
-  }
-
-  const dir = m.x2 >= m.x1 ? "right" : "left";
-  const midX = (m.x1 + m.x2) / 2;
-  return (
-    <g style={style}>
-      <line x1={m.x1} y1={m.y} x2={m.x2} y2={m.y} stroke={color} strokeWidth={width} strokeDasharray={dash} />
-      <Arrowhead x={m.x2} y={m.y} dir={dir} kind={m.arrow} color={color} />
-      {m.text && (
-        <text x={midX} y={m.y - 6} textAnchor="middle" fill={theme.columnText} fontSize={11} fontFamily="monospace">
-          {m.text}
-        </text>
-      )}
-    </g>
-  );
-}
-
-function Arrowhead({
-  x,
-  y,
-  dir,
-  kind,
-  color,
-}: {
-  x: number;
-  y: number;
-  dir: "left" | "right";
-  kind: ArrowKind;
-  color: string;
-}) {
-  const s = dir === "right" ? -1 : 1;
-  const dx = 9 * s;
-  if (kind === "cross") {
-    return (
-      <g stroke={color} strokeWidth={1.5}>
-        <line x1={x + dx} y1={y - 5} x2={x} y2={y + 5} />
-        <line x1={x + dx} y1={y + 5} x2={x} y2={y - 5} />
-      </g>
-    );
-  }
-  if (kind === "solid-open" || kind === "dashed-open") {
-    return (
-      <g stroke={color} strokeWidth={1.5} fill="none">
-        <line x1={x} y1={y} x2={x + dx} y2={y - 5} />
-        <line x1={x} y1={y} x2={x + dx} y2={y + 5} />
-      </g>
-    );
-  }
-  return <path d={`M ${x} ${y} L ${x + dx} ${y - 5} L ${x + dx} ${y + 5} Z`} fill={color} />;
 }

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { EnumIR } from "../../types/schema";
 import type { LayoutNode, DetailLevel } from "../../types/layout";
 import {
@@ -17,7 +18,7 @@ interface EnumNodeProps {
   onNavigateToSource?: (spanRange: [number, number]) => void;
 }
 
-export function EnumNode({
+export const EnumNode = memo(function EnumNode({
   enumBlock,
   layout,
   detailLevel,
@@ -102,4 +103,4 @@ export function EnumNode({
         })}
     </g>
   );
-}
+});

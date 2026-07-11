@@ -57,13 +57,13 @@ export function useViewTransform(
   const svgRef = useRef<SVGSVGElement | null>(null);
   const contentRef = useRef<SVGGElement | null>(null);
 
-  // Live camera value. Mutating gestures replace the object (immutable value,
-  // mutable ref) so subscribers can rely on referential inequality.
-  const liveRef = useRef<ViewTransform | null>(null);
-  if (liveRef.current === null) {
-    liveRef.current = loadTransform(storageKey) ?? DEFAULT_TRANSFORM;
-  }
-  const [committed, setCommitted] = useState<ViewTransform>(liveRef.current);
+  const [committed, setCommitted] = useState<ViewTransform>(
+    () => loadTransform(storageKey) ?? DEFAULT_TRANSFORM
+  );
+  // Live camera value, seeded from the initial committed state. Gestures
+  // replace the object (immutable value, mutable ref) so subscribers can rely
+  // on referential inequality.
+  const liveRef = useRef<ViewTransform>(committed);
 
   const [isPanning, setIsPanning] = useState(false);
   const isPanningRef = useRef(false);
@@ -76,7 +76,7 @@ export function useViewTransform(
   const writeAttr = useCallback(() => {
     const el = contentRef.current;
     if (!el) return;
-    const t = liveRef.current!;
+    const t = liveRef.current;
     el.setAttribute("transform", `translate(${t.x}, ${t.y}) scale(${t.scale})`);
   }, []);
 
@@ -85,7 +85,7 @@ export function useViewTransform(
   const flushFrame = useCallback(() => {
     rafRef.current = null;
     writeAttr();
-    const t = liveRef.current!;
+    const t = liveRef.current;
     listenersRef.current.forEach((cb) => cb(t));
   }, [writeAttr]);
 
@@ -98,19 +98,19 @@ export function useViewTransform(
   );
 
   const commitTransform = useCallback(() => {
-    setCommitted(liveRef.current!);
+    setCommitted(liveRef.current);
   }, []);
 
   const setTransform = useCallback(
     (action: React.SetStateAction<ViewTransform>, opts?: SetTransformOptions) => {
-      const next = typeof action === "function" ? action(liveRef.current!) : action;
+      const next = typeof action === "function" ? action(liveRef.current) : action;
       applyLive(next);
       if (opts?.commit !== false) setCommitted(next);
     },
     [applyLive]
   );
 
-  const getTransform = useCallback(() => liveRef.current!, []);
+  const getTransform = useCallback(() => liveRef.current, []);
 
   const subscribe = useCallback((cb: (t: ViewTransform) => void) => {
     listenersRef.current.add(cb);
@@ -192,7 +192,7 @@ export function useViewTransform(
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const factor = e.deltaY > 0 ? 0.9 : 1.1;
-      const prev = liveRef.current!;
+      const prev = liveRef.current;
       const newScale = Math.max(0.1, Math.min(3.0, prev.scale * factor));
       const rect = el.getBoundingClientRect();
       const mx = e.clientX - rect.left;
@@ -219,7 +219,7 @@ export function useViewTransform(
     ) {
       isPanningRef.current = true;
       setIsPanning(true);
-      const t = liveRef.current!;
+      const t = liveRef.current;
       panStartRef.current = { x: e.clientX - t.x, y: e.clientY - t.y };
     }
   }, []);
@@ -228,7 +228,7 @@ export function useViewTransform(
     (e: React.MouseEvent) => {
       if (!isPanningRef.current) return;
       applyLive({
-        ...liveRef.current!,
+        ...liveRef.current,
         x: e.clientX - panStartRef.current.x,
         y: e.clientY - panStartRef.current.y,
       });
@@ -247,7 +247,7 @@ export function useViewTransform(
   // value (which may be ahead of the committed state mid-wheel) is saved first.
   useEffect(() => {
     if (storageKey !== prevKeyRef.current) {
-      saveTransform(prevKeyRef.current, liveRef.current!);
+      saveTransform(prevKeyRef.current, liveRef.current);
       prevKeyRef.current = storageKey;
       if (wheelIdleRef.current) {
         clearTimeout(wheelIdleRef.current);
@@ -276,7 +276,7 @@ export function useViewTransform(
     () => () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       if (wheelIdleRef.current) clearTimeout(wheelIdleRef.current);
-      saveTransform(prevKeyRef.current, liveRef.current!);
+      saveTransform(prevKeyRef.current, liveRef.current);
     },
     []
   );

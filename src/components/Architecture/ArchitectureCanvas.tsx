@@ -1,24 +1,16 @@
 import { useMemo, useState, useCallback } from "react";
 import type { LayoutResult, LayoutNode } from "../../types/layout";
-import type {
-  ArchCanvasLayout,
-  ArchPlacedNode,
-  ArchPlacedEdge,
-} from "../../lib/architecture/layout";
+import type { ArchCanvasLayout, ArchPlacedEdge } from "../../lib/architecture/layout";
 import { useViewTransform } from "../../hooks/useViewTransform";
 import { useTheme } from "../../context/ThemeContext";
 import { ZoomControls } from "../Diagram/ZoomControls";
 import { MiniMap } from "../Diagram/MiniMap";
-import { TABLE_BORDER_RADIUS } from "../../lib/constants";
-import { roundedPath, arrowHead } from "../../lib/edgePath";
-import { ArchIcon } from "./NodeIcons";
+import { GroupBand, ArchEdgeGlyph, NodeCard } from "./ArchGlyphs";
 
 interface ArchitectureCanvasProps {
   layout: ArchCanvasLayout;
   storageKey: string;
 }
-
-const DIM = 0.18;
 
 export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasProps) {
   const { theme } = useTheme();
@@ -50,6 +42,10 @@ export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasPro
   const nodeActive = (id: string) => !related || related.has(id);
   const edgeActive = (e: ArchPlacedEdge) => !focus || e.from === focus || e.to === focus;
 
+  const onEnter = useCallback((id: string) => setHovered(id), []);
+  const onLeave = useCallback(() => setHovered(null), []);
+  const onSelect = useCallback((id: string) => setSelected(id), []);
+
   const onBgDown = useCallback(
     (ev: React.MouseEvent) => {
       vt.handleMouseDown(ev);
@@ -74,84 +70,26 @@ export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasPro
       >
         <rect className="canvas-bg" width="100%" height="100%" fill={theme.canvasBg} />
         <g ref={vt.contentRef}>
-          {/* Group bands */}
           {layout.groups.map((grp, i) => (
-            <g key={`grp-${i}`}>
-              <rect
-                x={grp.x}
-                y={grp.y}
-                width={grp.w}
-                height={grp.h}
-                rx={TABLE_BORDER_RADIUS}
-                ry={TABLE_BORDER_RADIUS}
-                fill={theme.groupBg}
-                stroke={theme.groupBorder}
-                strokeWidth={1}
-                strokeDasharray="4 3"
-              />
-              {grp.name && (
-                <text
-                  x={grp.x + 12}
-                  y={grp.y + 15}
-                  fill={theme.toolbarTextMuted}
-                  fontSize={12}
-                  fontWeight="bold"
-                  fontFamily="monospace"
-                >
-                  {grp.name}
-                </text>
-              )}
-            </g>
+            <GroupBand key={`grp-${i}`} grp={grp} />
           ))}
-
-          {/* Edges */}
-          {layout.edges.map((e) => {
-            const active = edgeActive(e);
-            const highlighted = !!focus && active;
-            const color = highlighted ? theme.edgeLineHover : theme.edgeLine;
-            const end = e.points[e.points.length - 1];
-            const prev = e.points[e.points.length - 2];
-            return (
-              <g
-                key={e.id}
-                className={highlighted ? "edge-animated" : undefined}
-                style={{ opacity: focus && !active ? DIM : 1, transition: "opacity 0.15s" }}
-              >
-                <path
-                  d={roundedPath(e.points)}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={highlighted ? 2.5 : 1.5}
-                  strokeDasharray={e.async ? "6 4" : undefined}
-                />
-                <path d={arrowHead(end, prev)} fill={color} />
-                {e.label && (
-                  <text
-                    x={e.points[0].x + (end.x >= e.points[0].x ? 8 : -8)}
-                    y={e.points[0].y - 6}
-                    fill={theme.columnText}
-                    fontSize={11}
-                    fontFamily="monospace"
-                    textAnchor={end.x >= e.points[0].x ? "start" : "end"}
-                  >
-                    {e.label}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Nodes */}
+          {layout.edges.map((e) => (
+            <ArchEdgeGlyph
+              key={e.id}
+              e={e}
+              active={edgeActive(e)}
+              highlighted={!!focus && edgeActive(e)}
+            />
+          ))}
           {layout.nodes.map((n) => (
             <NodeCard
               key={n.id}
               n={n}
-              theme={theme}
               selected={selected === n.id}
               dimmed={!!focus && !nodeActive(n.id)}
-              onEnter={() => setHovered(n.id)}
-              onLeave={() => setHovered(null)}
-              onSelect={() => setSelected(n.id)}
+              onEnter={onEnter}
+              onLeave={onLeave}
+              onSelect={onSelect}
             />
           ))}
         </g>
@@ -172,74 +110,5 @@ export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasPro
         svgRef={vt.svgRef}
       />
     </div>
-  );
-}
-
-function NodeCard({
-  n,
-  theme,
-  selected,
-  dimmed,
-  onEnter,
-  onLeave,
-  onSelect,
-}: {
-  n: ArchPlacedNode;
-  theme: ReturnType<typeof useTheme>["theme"];
-  selected: boolean;
-  dimmed: boolean;
-  onEnter: () => void;
-  onLeave: () => void;
-  onSelect: () => void;
-}) {
-  const stroke = selected ? theme.tableBorderSelected : theme.tableBorder;
-  const sw = selected ? 2 : 1;
-  const iconCy = n.y + 22;
-  return (
-    <g
-      style={{ cursor: "pointer", opacity: dimmed ? DIM : 1, transition: "opacity 0.15s" }}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      onMouseDown={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-    >
-      <rect
-        x={n.x}
-        y={n.y}
-        width={n.w}
-        height={n.h}
-        rx={TABLE_BORDER_RADIUS}
-        ry={TABLE_BORDER_RADIUS}
-        fill={theme.tableHeader}
-        stroke={stroke}
-        strokeWidth={sw}
-      />
-      <ArchIcon kind={n.kind} cx={n.cx} cy={iconCy} size={22} color={theme.headerText} />
-      <text
-        x={n.cx}
-        y={n.y + 48}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill={theme.headerText}
-        fontSize={12}
-        fontWeight="bold"
-        fontFamily="monospace"
-      >
-        {n.label}
-      </text>
-      <text
-        x={n.cx}
-        y={n.y + 62}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill={theme.columnType}
-        fontSize={9}
-        fontFamily="monospace"
-      >
-        {n.kind}
-      </text>
-    </g>
   );
 }

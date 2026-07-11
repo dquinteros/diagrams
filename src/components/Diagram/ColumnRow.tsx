@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { ColumnIR } from "../../types/schema";
 import { ROW_HEIGHT, TABLE_WIDTH } from "../../lib/constants";
 import { useTheme } from "../../context/ThemeContext";
@@ -9,7 +10,7 @@ interface ColumnRowProps {
   isFk: boolean;
 }
 
-export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
+export const ColumnRow = memo(function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
   const { theme } = useTheme();
   const rowY = y + index * ROW_HEIGHT;
   const textY = rowY + ROW_HEIGHT / 2;
@@ -89,7 +90,7 @@ export function ColumnRow({ column, index, y, isFk }: ColumnRowProps) {
       )}
     </g>
   );
-}
+});
 
 function measureTypeWidth(type: string): number {
   return type.length * 6.5;

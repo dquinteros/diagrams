@@ -1,4 +1,5 @@
-import type { TableIR, SchemaIR } from "../../types/schema";
+import { memo, useMemo } from "react";
+import type { TableIR } from "../../types/schema";
 import type { LayoutNode, DetailLevel } from "../../types/layout";
 import { ColumnRow } from "./ColumnRow";
 import {
@@ -9,12 +10,13 @@ import {
   TABLE_BORDER_RADIUS,
 } from "../../lib/constants";
 import { useTheme } from "../../context/ThemeContext";
-import { getFkColumns, getVisibleColumns } from "../../lib/layoutEngine";
+import { getVisibleColumns } from "../../lib/layoutEngine";
 
 interface TableNodeProps {
   table: TableIR;
   layout: LayoutNode;
-  schema: SchemaIR;
+  /** FK columns of this table, precomputed once per schema by the canvas. */
+  fkColumns: Set<string>;
   isSelected: boolean;
   isDimmed?: boolean;
   onDragStart: (tableName: string, e: React.MouseEvent) => void;
@@ -23,10 +25,12 @@ interface TableNodeProps {
   detailLevel: DetailLevel;
 }
 
-export function TableNode({
+// Memoized: during hover/selection/drag only the affected tables re-render;
+// pan/zoom never re-renders tables at all (imperative camera transform).
+export const TableNode = memo(function TableNode({
   table,
   layout,
-  schema,
+  fkColumns,
   isSelected,
   isDimmed,
   onDragStart,
@@ -36,8 +40,10 @@ export function TableNode({
 }: TableNodeProps) {
   const { theme } = useTheme();
 
-  const fkColumns = getFkColumns(schema, table.name);
-  const visibleColumns = getVisibleColumns(table, fkColumns, detailLevel);
+  const visibleColumns = useMemo(
+    () => getVisibleColumns(table, fkColumns, detailLevel),
+    [table, fkColumns, detailLevel]
+  );
 
   const height =
     HEADER_HEIGHT + visibleColumns.length * ROW_HEIGHT + TABLE_PADDING * 2;
@@ -101,4 +107,4 @@ export function TableNode({
       )}
     </g>
   );
-}
+});
