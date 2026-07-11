@@ -14,7 +14,7 @@ import { layoutSequence } from "./lib/sequence/layout";
 import { parseBpmn } from "./lib/bpmn/parse";
 import { computeBpmnLayout } from "./lib/bpmn/canvasLayout";
 import { parseArchitecture } from "./lib/architecture/parse";
-import { computeArchitectureLayout } from "./lib/architecture/layout";
+import type { ArchCanvasLayout } from "./lib/architecture/layout";
 import { Toolbar } from "./components/Toolbar/Toolbar";
 import { TabBar } from "./components/Toolbar/TabBar";
 import { ImportSqlModal } from "./components/Toolbar/ImportSqlModal";
@@ -34,6 +34,8 @@ import {
 import { saveSession } from "./lib/session";
 import { useDbmlParser } from "./hooks/useDbmlParser";
 import { useDiagramLayout } from "./hooks/useDiagramLayout";
+import { useDebouncedValue } from "./hooks/useDebouncedValue";
+import { useWorkerLayout } from "./hooks/useWorkerLayout";
 import { useFileOperations } from "./hooks/useFileOperations";
 import { useDocuments, type Doc } from "./hooks/useDocuments";
 import { useTheme } from "./context/ThemeContext";
@@ -68,37 +70,53 @@ function App() {
   useEffect(() => {
     schemaRef.current = schema;
   }, [schema]);
-  const layout = useDiagramLayout(schema, rankdir, detailLevel);
+  const { layout, isLayouting: isDbmlLayouting } = useDiagramLayout(schema, rankdir, detailLevel);
   const fileOps = useFileOperations();
   const languageExtensions = useMemo(
     () => languageExtensionsFor(activeDoc.type, schemaRef),
     [activeDoc.type]
   );
 
+  // Client-side diagram types parse off the debounced content so typing never
+  // pays parse+layout per keystroke (DBML already debounces in useDbmlParser).
+  const debouncedContent = useDebouncedValue(content, 150, activeDoc.id);
+
   // Sequence diagrams parse + layout entirely client-side.
   const seq = useMemo(() => {
     if (activeDoc.type !== "sequence") return null;
-    const { ir, error } = parseSequence(content);
+    const { ir, error } = parseSequence(debouncedContent);
     return { layout: layoutSequence(ir), error };
-  }, [activeDoc.type, content]);
+  }, [activeDoc.type, debouncedContent]);
 
   // BPMN diagrams parse + layout entirely client-side (custom SVG renderer).
   const bpmn = useMemo(() => {
     if (activeDoc.type !== "bpmn") return null;
-    const { ir, error } = parseBpmn(content);
+    const { ir, error } = parseBpmn(debouncedContent);
     return { layout: computeBpmnLayout(ir), error };
-  }, [activeDoc.type, content]);
+  }, [activeDoc.type, debouncedContent]);
 
-  // Architecture diagrams parse + layout entirely client-side (custom SVG renderer).
-  const arch = useMemo(() => {
+  // Architecture parses client-side but its dagre layout is heavy (hundreds of
+  // ms at hundreds of nodes) → computed in the layout worker.
+  const archParse = useMemo(() => {
     if (activeDoc.type !== "architecture") return null;
-    const { ir, error } = parseArchitecture(content);
-    return { layout: computeArchitectureLayout(ir), error };
-  }, [activeDoc.type, content]);
+    return parseArchitecture(debouncedContent);
+  }, [activeDoc.type, debouncedContent]);
+  const archJob = useMemo(
+    () => (archParse ? ({ kind: "arch", ir: archParse.ir } as const) : null),
+    [archParse]
+  );
+  const { layout: archWorkerLayout, isLayouting: isArchLayouting } = useWorkerLayout(archJob);
+  const arch = useMemo(() => {
+    if (!archParse) return null;
+    return {
+      layout: (archWorkerLayout as ArchCanvasLayout | null),
+      error: archParse.error,
+    };
+  }, [archParse, archWorkerLayout]);
 
   // Active diagram bounds (used by image export).
-  const diagramW = isDbml ? layout.width : seq?.layout.width ?? bpmn?.layout.width ?? arch?.layout.width ?? 0;
-  const diagramH = isDbml ? layout.height : seq?.layout.height ?? bpmn?.layout.height ?? arch?.layout.height ?? 0;
+  const diagramW = isDbml ? layout.width : seq?.layout.width ?? bpmn?.layout.width ?? arch?.layout?.width ?? 0;
+  const diagramH = isDbml ? layout.height : seq?.layout.height ?? bpmn?.layout.height ?? arch?.layout?.height ?? 0;
 
   // Unified parse-error for the toolbar across diagram types.
   const otherError = seq?.error ?? bpmn?.error ?? arch?.error ?? null;
@@ -509,7 +527,7 @@ function App() {
     >
       <Toolbar
         parseError={activeError}
-        isLoading={isLoading}
+        isLoading={isLoading || isDbmlLayouting || isArchLayouting}
         stats={
           isDbml && schema
             ? `${schema.tables.length} tables, ${schema.refs.length} refs`
@@ -517,7 +535,7 @@ function App() {
               ? `${seq.layout.participants.length} participants, ${seq.layout.messages.length} messages`
               : activeDoc.type === "bpmn" && bpmn
                 ? `${bpmn.layout.nodes.length} nodes, ${bpmn.layout.edges.length} flows`
-                : activeDoc.type === "architecture" && arch
+                : activeDoc.type === "architecture" && arch?.layout
                   ? `${arch.layout.nodes.length} nodes, ${arch.layout.edges.length} connections`
                   : DIAGRAM_TYPES[activeDoc.type].label
         }
