@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>diagrams bench</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      // Benchmark harness: ?type=dbml|sequence|bpmn|architecture&n=300
+      // Seeds the session with a synthetic doc, mocks the Tauri IPC bridge for
+      // DBML (returns a pre-built SchemaIR), then boots the real app.
+      const params = new URLSearchParams(location.search);
+      const type = params.get("type") || "dbml";
+      const n = parseInt(params.get("n") || "100", 10);
+
+      const { genContent, genDbmlIR } = await import("/bench/gen.ts");
+      const content = genContent(type, n);
+
+      localStorage.clear(); // fresh session: no stale layouts/transforms
+      localStorage.setItem(
+        "diagrams-session",
+        JSON.stringify({
+          activeId: "bench",
+          docs: [{ id: "bench", filePath: null, type, isDirty: true, content }],
+        })
+      );
+
+      if (type === "dbml") {
+        const ir = genDbmlIR(n);
+        let cbId = 0;
+        window.__TAURI_INTERNALS__ = {
+          metadata: {
+            currentWindow: { label: "main" },
+            currentWebview: { label: "main", windowLabel: "main" },
+          },
+          transformCallback: (cb) => {
+            const id = ++cbId;
+            window["_" + id] = cb;
+            return id;
+          },
+          invoke: async (cmd) => {
+            if (cmd === "parse_dbml") return { schema: ir, error: null };
+            if (cmd.startsWith("plugin:event|")) return ++cbId;
+            return null;
+          },
+        };
+      }
+
+      window.__BENCH__ = { type, n, t0: performance.now(), renderMs: null };
+      await import("/src/main.tsx");
+
+      // Time until the diagram SVG actually has content.
+      (function poll() {
+        const g = document.querySelector("[data-diagram-svg] g");
+        if (g && g.childElementCount > 2) {
+          window.__BENCH__.renderMs = performance.now() - window.__BENCH__.t0;
+        } else {
+          requestAnimationFrame(poll);
+        }
+      })();
+    </script>
+  </body>
+</html>

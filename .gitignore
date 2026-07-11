@@ -10,7 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-bench
 *.local
+bench/last-run.json
 
 # Rust/Tauri
 src-tauri/target/

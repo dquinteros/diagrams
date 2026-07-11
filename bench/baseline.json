@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "date": "2026-07-11",
+    "build": "vite production build (dist-bench) served by vite preview :5200",
+    "viewport": "1400x900",
+    "notes": "pan: 2.5s synthetic mousemove sinusoidal drag; zoom: 2s wheel events alternating direction; dbml parsing mocked via __TAURI_INTERNALS__ returning pregenerated SchemaIR (render path identical to desktop app). arquitectura n=100 en dev server dio 59.6fps pan / 52fps zoom (consistente con producción)."
+  },
+  "results": [
+    {"type":"dbml","n":100,"renderMs":650,"domTotal":4553,"svgEls":3893,"heapMB":17.7,"pan":{"avgFps":42.4,"frameP50":16.8,"frameP95":83.6,"frameMax":134.5,"droppedPct":7.5},"zoom":{"avgFps":10.4,"frameP50":81.5,"frameP95":216.6,"frameMax":266.7,"droppedPct":95.2}},
+    {"type":"dbml","n":300,"renderMs":885,"domTotal":12553,"svgEls":11693,"heapMB":52.9,"pan":{"avgFps":33.2,"frameP50":33.2,"frameP95":34.3,"frameMax":50.5,"droppedPct":77.4},"zoom":{"avgFps":10.6,"frameP50":99.8,"frameP95":116.2,"frameMax":117.1,"droppedPct":95.5}},
+    {"type":"dbml","n":600,"renderMs":639,"domTotal":24553,"svgEls":23393,"heapMB":62.9,"pan":{"avgFps":19.6,"frameP50":50,"frameP95":66.9,"frameMax":67.3,"droppedPct":98},"zoom":{"avgFps":6,"frameP50":183,"frameP95":200.5,"frameMax":200.5,"droppedPct":92.3}},
+    {"type":"dbml","n":1000,"renderMs":1060,"domTotal":40553,"svgEls":38993,"heapMB":215.8,"pan":{"avgFps":10.4,"frameP50":99.9,"frameP95":133.1,"frameMax":149.4,"droppedPct":96.2},"zoom":{"avgFps":3.7,"frameP50":300.5,"frameP95":316.7,"frameMax":316.7,"droppedPct":87.5}},
+    {"type":"sequence","n":100,"renderMs":97,"domTotal":1142,"svgEls":557,"heapMB":86.4,"pan":{"avgFps":60,"frameP50":16.7,"frameP95":17.4,"frameMax":17.7,"droppedPct":0},"zoom":{"avgFps":60,"frameP50":16.7,"frameP95":17.4,"frameMax":17.6,"droppedPct":0}},
+    {"type":"sequence","n":300,"renderMs":118,"domTotal":2108,"svgEls":1515,"heapMB":99.6,"pan":{"avgFps":46.9,"frameP50":16.7,"frameP95":17.6,"frameMax":566.4,"droppedPct":0.8},"zoom":{"avgFps":60,"frameP50":16.6,"frameP95":17.6,"frameMax":17.7,"droppedPct":0}},
+    {"type":"sequence","n":600,"renderMs":116,"domTotal":3556,"svgEls":2951,"heapMB":100.4,"pan":{"avgFps":60,"frameP50":16.7,"frameP95":17.6,"frameMax":17.7,"droppedPct":0},"zoom":{"avgFps":56,"frameP50":16.7,"frameP95":32.9,"frameMax":34,"droppedPct":7.1}},
+    {"type":"sequence","n":1000,"renderMs":87,"domTotal":5486,"svgEls":4865,"heapMB":126.2,"pan":{"avgFps":60,"frameP50":16.7,"frameP95":17.6,"frameMax":17.7,"droppedPct":0},"zoom":{"avgFps":37.2,"frameP50":32.7,"frameP95":34.3,"frameMax":50.3,"droppedPct":58.7}},
+    {"type":"bpmn","n":100,"renderMs":116,"domTotal":1239,"svgEls":694,"heapMB":86.6,"pan":{"avgFps":60,"frameP50":16.7,"frameP95":17.6,"frameMax":17.8,"droppedPct":0},"zoom":{"avgFps":60,"frameP50":16.6,"frameP95":17.4,"frameMax":17.8,"droppedPct":0}},
+    {"type":"bpmn","n":300,"renderMs":129,"domTotal":2838,"svgEls":2093,"heapMB":76.7,"pan":{"avgFps":60,"frameP50":16.7,"frameP95":17.5,"frameMax":17.7,"droppedPct":0},"zoom":{"avgFps":60,"frameP50":16.6,"frameP95":17.4,"frameMax":17.6,"droppedPct":0}},
+    {"type":"bpmn","n":600,"renderMs":144,"domTotal":5234,"svgEls":4189,"heapMB":59.5,"pan":{"avgFps":60,"frameP50":16.7,"frameP95":17.9,"frameMax":18.7,"droppedPct":0},"zoom":{"avgFps":45.3,"frameP50":17.1,"frameP95":34.5,"frameMax":35,"droppedPct":32.6}},
+    {"type":"bpmn","n":1000,"renderMs":168,"domTotal":8427,"svgEls":6982,"heapMB":64.2,"pan":{"avgFps":47.3,"frameP50":16.9,"frameP95":34,"frameMax":35.3,"droppedPct":26.9},"zoom":{"avgFps":25.8,"frameP50":33.8,"frameP95":50.7,"frameMax":51.9,"droppedPct":90.4}},
+    {"type":"architecture","n":100,"renderMs":265,"domTotal":1691,"svgEls":1153,"heapMB":75.2,"pan":{"avgFps":60,"frameP50":16.6,"frameP95":18.4,"frameMax":18.7,"droppedPct":0},"zoom":{"avgFps":60,"frameP50":16.7,"frameP95":18.5,"frameMax":18.7,"droppedPct":0}},
+    {"type":"architecture","n":300,"renderMs":548,"domTotal":4203,"svgEls":3465,"heapMB":72.7,"pan":{"avgFps":60,"frameP50":16.7,"frameP95":18.2,"frameMax":18.8,"droppedPct":0},"zoom":{"avgFps":50.1,"frameP50":16.7,"frameP95":33.8,"frameMax":35.3,"droppedPct":19.8}},
+    {"type":"architecture","n":600,"renderMs":964,"domTotal":7975,"svgEls":6937,"heapMB":90,"pan":{"avgFps":55.7,"frameP50":16.9,"frameP95":32.9,"frameMax":34.9,"droppedPct":7.9},"zoom":{"avgFps":25.6,"frameP50":34.2,"frameP95":50.7,"frameMax":51.7,"droppedPct":90.4}},
+    {"type":"architecture","n":1000,"renderMs":1736,"domTotal":13008,"svgEls":11570,"heapMB":76.8,"pan":{"avgFps":38,"frameP50":32,"frameP95":35.1,"frameMax":48.2,"droppedPct":56.8},"zoom":{"avgFps":16,"frameP50":66.4,"frameP95":83.4,"frameMax":83.4,"droppedPct":97}}
+  ],
+  "rustParse": [
+    {"n":100,"parseMedianMs":8.44,"parseMaxMs":9.30,"serializeMedianMs":0.19,"payloadKb":136.8},
+    {"n":300,"parseMedianMs":59.17,"parseMaxMs":60.81,"serializeMedianMs":0.55,"payloadKb":413.2},
+    {"n":600,"parseMedianMs":222.70,"parseMaxMs":253.50,"serializeMedianMs":1.18,"payloadKb":828.8},
+    {"n":1000,"parseMedianMs":597.13,"parseMaxMs":611.18,"serializeMedianMs":2.32,"payloadKb":1387.7}
+  ]
+}
