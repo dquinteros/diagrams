@@ -1,7 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
 import type { LayoutNode } from "../../types/layout";
-import type { ViewTransform } from "../../hooks/useViewTransform";
+import type {
+  TransformStore,
+  ViewTransform,
+  SetTransformOptions,
+} from "../../hooks/useViewTransform";
 import { useTheme } from "../../context/ThemeContext";
+import { MiniMapViewport } from "./MiniMapViewport";
 
 const MM_WIDTH = 180;
 const MM_HEIGHT = 120;
@@ -11,8 +16,12 @@ interface MiniMapProps {
   nodes: Map<string, LayoutNode>;
   diagramWidth: number;
   diagramHeight: number;
-  transform: ViewTransform;
-  setTransform: React.Dispatch<React.SetStateAction<ViewTransform>>;
+  store: TransformStore;
+  setTransform: (
+    action: React.SetStateAction<ViewTransform>,
+    opts?: SetTransformOptions
+  ) => void;
+  commitTransform: () => void;
   svgRef: React.RefObject<SVGSVGElement | null>;
 }
 
@@ -20,8 +29,9 @@ export function MiniMap({
   nodes,
   diagramWidth,
   diagramHeight,
-  transform,
+  store,
   setTransform,
+  commitTransform,
   svgRef,
 }: MiniMapProps) {
   const { theme } = useTheme();
@@ -50,27 +60,32 @@ export function MiniMap({
       ? Math.min(innerW / diagramWidth, innerH / diagramHeight)
       : 1;
 
-  // Visible viewport expressed in diagram coordinates.
-  const viewW = svgSize.width / transform.scale;
-  const viewH = svgSize.height / transform.scale;
-  const viewX = -transform.x / transform.scale;
-  const viewY = -transform.y / transform.scale;
-
+  // While dragging the minimap the camera moves live (no React commit per
+  // frame); the position commits once on release.
   const recenter = useCallback(
-    (clientX: number, clientY: number, target: SVGSVGElement) => {
+    (clientX: number, clientY: number, target: SVGSVGElement, commit: boolean) => {
       const rect = target.getBoundingClientRect();
       const diagX = (clientX - rect.left - MM_PADDING) / scale;
       const diagY = (clientY - rect.top - MM_PADDING) / scale;
       const svg = svgRef.current?.getBoundingClientRect();
       if (!svg) return;
-      setTransform((prev) => ({
-        ...prev,
-        x: svg.width / 2 - diagX * prev.scale,
-        y: svg.height / 2 - diagY * prev.scale,
-      }));
+      setTransform(
+        (prev) => ({
+          ...prev,
+          x: svg.width / 2 - diagX * prev.scale,
+          y: svg.height / 2 - diagY * prev.scale,
+        }),
+        { commit }
+      );
     },
     [scale, setTransform, svgRef]
   );
+
+  const endDrag = useCallback(() => {
+    if (!dragging) return;
+    setDragging(false);
+    commitTransform();
+  }, [dragging, commitTransform]);
 
   return (
     <div
@@ -93,13 +108,13 @@ export function MiniMap({
         style={{ cursor: "pointer", display: "block" }}
         onMouseDown={(e) => {
           setDragging(true);
-          recenter(e.clientX, e.clientY, e.currentTarget);
+          recenter(e.clientX, e.clientY, e.currentTarget, false);
         }}
         onMouseMove={(e) => {
-          if (dragging) recenter(e.clientX, e.clientY, e.currentTarget);
+          if (dragging) recenter(e.clientX, e.clientY, e.currentTarget, false);
         }}
-        onMouseUp={() => setDragging(false)}
-        onMouseLeave={() => setDragging(false)}
+        onMouseUp={endDrag}
+        onMouseLeave={endDrag}
       >
         <g transform={`translate(${MM_PADDING}, ${MM_PADDING})`}>
           {Array.from(nodes.values()).map((node) => (
@@ -115,16 +130,12 @@ export function MiniMap({
               rx={1}
             />
           ))}
-          <rect
-            x={viewX * scale}
-            y={viewY * scale}
-            width={viewW * scale}
-            height={viewH * scale}
-            fill={theme.toolbarAccent}
-            fillOpacity={0.15}
-            stroke={theme.toolbarAccent}
-            strokeWidth={1}
-            pointerEvents="none"
+          <MiniMapViewport
+            store={store}
+            svgWidth={svgSize.width}
+            svgHeight={svgSize.height}
+            scale={scale}
+            accent={theme.toolbarAccent}
           />
         </g>
       </svg>

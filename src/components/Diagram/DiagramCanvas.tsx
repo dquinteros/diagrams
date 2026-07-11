@@ -105,10 +105,11 @@ export function DiagramCanvas({
         const sdy = e.clientY - ds.startMouseY;
         if (!ds.moved && Math.abs(sdx) + Math.abs(sdy) < DRAG_THRESHOLD) return;
         ds.moved = true;
+        const scale = vt.getTransform().scale;
         np.moveNode(
           ds.tableName,
-          ds.startNodeX + sdx / vt.transform.scale,
-          ds.startNodeY + sdy / vt.transform.scale
+          ds.startNodeX + sdx / scale,
+          ds.startNodeY + sdy / scale
         );
       } else {
         vt.handleMouseMove(e);
@@ -181,7 +182,7 @@ export function DiagramCanvas({
         onMouseLeave={handleMouseUp}
       >
         <rect className="canvas-bg" width="100%" height="100%" fill={theme.canvasBg} />
-        <g transform={`translate(${vt.transform.x}, ${vt.transform.y}) scale(${vt.transform.scale})`}>
+        <g ref={vt.contentRef}>
           {schema.tableGroups.map((group) => (
             <TableGroupRect key={group.name} group={group} nodes={np.nodes} />
           ))}
@@ -248,7 +249,7 @@ export function DiagramCanvas({
         </g>
       </svg>
       <ZoomControls
-        zoomPercentage={vt.zoomPercentage}
+        store={vt.store}
         onZoomIn={vt.zoomIn}
         onZoomOut={vt.zoomOut}
         onFitToScreen={vt.fitToScreen}
@@ -268,8 +269,9 @@ export function DiagramCanvas({
         nodes={np.nodes}
         diagramWidth={layout.width}
         diagramHeight={layout.height}
-        transform={vt.transform}
+        store={vt.store}
         setTransform={vt.setTransform}
+        commitTransform={vt.commitTransform}
         svgRef={vt.svgRef}
       />
       {tooltipContent && hoverInfo && (

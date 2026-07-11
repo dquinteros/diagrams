@@ -78,7 +78,7 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
         onMouseLeave={vt.handleMouseUp}
       >
         <rect className="canvas-bg" width="100%" height="100%" fill={theme.canvasBg} />
-        <g transform={`translate(${vt.transform.x}, ${vt.transform.y}) scale(${vt.transform.scale})`}>
+        <g ref={vt.contentRef}>
           {/* Lifelines */}
           {layout.participants.map((p) => (
             <line
@@ -202,7 +202,7 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
         </g>
       </svg>
       <ZoomControls
-        zoomPercentage={vt.zoomPercentage}
+        store={vt.store}
         onZoomIn={vt.zoomIn}
         onZoomOut={vt.zoomOut}
         onFitToScreen={vt.fitToScreen}
@@ -211,8 +211,9 @@ export function SequenceCanvas({ layout, storageKey }: SequenceCanvasProps) {
         nodes={miniNodes}
         diagramWidth={layout.width}
         diagramHeight={layout.height}
-        transform={vt.transform}
+        store={vt.store}
         setTransform={vt.setTransform}
+        commitTransform={vt.commitTransform}
         svgRef={vt.svgRef}
       />
     </div>

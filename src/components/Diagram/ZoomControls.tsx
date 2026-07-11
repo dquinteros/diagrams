@@ -1,8 +1,10 @@
+import { useSyncExternalStore } from "react";
 import type { DetailLevel } from "../../types/layout";
+import type { TransformStore } from "../../hooks/useViewTransform";
 import { useTheme } from "../../context/ThemeContext";
 
 interface ZoomControlsProps {
-  zoomPercentage: number;
+  store: TransformStore;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFitToScreen: () => void;
@@ -14,6 +16,28 @@ interface ZoomControlsProps {
   onResetLayout?: () => void;
 }
 
+// Subscribed to the live transform so the percentage tracks the gesture
+// without re-rendering anything else.
+function ZoomLabel({ store, color }: { store: TransformStore; color: string }) {
+  const pct = useSyncExternalStore(store.subscribe, () =>
+    Math.round(store.getTransform().scale * 100)
+  );
+  return (
+    <span
+      style={{
+        color,
+        fontSize: 11,
+        fontFamily: "var(--font-mono)",
+        minWidth: 38,
+        textAlign: "center",
+        userSelect: "none",
+      }}
+    >
+      {pct}%
+    </span>
+  );
+}
+
 const DETAIL_LABELS: Record<DetailLevel, string> = {
   full: "All",
   "keys-only": "Keys",
@@ -21,7 +45,7 @@ const DETAIL_LABELS: Record<DetailLevel, string> = {
 };
 
 export function ZoomControls({
-  zoomPercentage,
+  store,
   onZoomIn,
   onZoomOut,
   onFitToScreen,
@@ -89,18 +113,7 @@ export function ZoomControls({
       >
         -
       </button>
-      <span
-        style={{
-          color: theme.toolbarTextMuted,
-          fontSize: 11,
-          fontFamily: "var(--font-mono)",
-          minWidth: 38,
-          textAlign: "center",
-          userSelect: "none",
-        }}
-      >
-        {zoomPercentage}%
-      </span>
+      <ZoomLabel store={store} color={theme.toolbarTextMuted} />
       <button
         onClick={onZoomIn}
         style={btnStyle}

@@ -73,7 +73,7 @@ export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasPro
         onMouseLeave={vt.handleMouseUp}
       >
         <rect className="canvas-bg" width="100%" height="100%" fill={theme.canvasBg} />
-        <g transform={`translate(${vt.transform.x}, ${vt.transform.y}) scale(${vt.transform.scale})`}>
+        <g ref={vt.contentRef}>
           {/* Group bands */}
           {layout.groups.map((grp, i) => (
             <g key={`grp-${i}`}>
@@ -157,7 +157,7 @@ export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasPro
         </g>
       </svg>
       <ZoomControls
-        zoomPercentage={vt.zoomPercentage}
+        store={vt.store}
         onZoomIn={vt.zoomIn}
         onZoomOut={vt.zoomOut}
         onFitToScreen={vt.fitToScreen}
@@ -166,8 +166,9 @@ export function ArchitectureCanvas({ layout, storageKey }: ArchitectureCanvasPro
         nodes={miniNodes}
         diagramWidth={layout.width}
         diagramHeight={layout.height}
-        transform={vt.transform}
+        store={vt.store}
         setTransform={vt.setTransform}
+        commitTransform={vt.commitTransform}
         svgRef={vt.svgRef}
       />
     </div>
