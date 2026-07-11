@@ -132,6 +132,9 @@ export function computeBpmnLayout(ir: BpmnIR): BpmnCanvasLayout {
   const outBy = new Map<string, string[]>();
   const inBy = new Map<string, string[]>();
   for (const f of ir.flows) {
+    // Only count flows that are actually drawn (both endpoints placed), so the
+    // spread index/length matches the edge loop and connectors stay aligned.
+    if (!geom.has(f.from) || !geom.has(f.to)) continue;
     (outBy.get(f.from) ?? outBy.set(f.from, []).get(f.from)!).push(f.id);
     (inBy.get(f.to) ?? inBy.set(f.to, []).get(f.to)!).push(f.id);
   }

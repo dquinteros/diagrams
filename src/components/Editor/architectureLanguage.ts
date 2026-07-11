@@ -10,11 +10,11 @@ const KEYWORDS = new Set<string>([
 ]);
 
 interface ArchState {
-  afterColon: boolean;
+  sawWord: boolean;
 }
 
 function tokenize(stream: StringStream, state: ArchState): string | null {
-  if (stream.sol()) state.afterColon = false;
+  if (stream.sol()) state.sawWord = false;
   if (stream.eatSpace()) return null;
 
   if (stream.match("#") || stream.match("//")) {
@@ -27,17 +27,21 @@ function tokenize(stream: StringStream, state: ArchState): string | null {
     while (!stream.eol()) {
       if (stream.next() === quote) break;
     }
+    state.sawWord = true;
     return "string";
   }
 
   if (stream.match("->") || stream.eat(":") || stream.eat("~")) {
+    state.sawWord = true;
     return "operator";
   }
 
   if (stream.match(/^[A-Za-z_][\w-]*/)) {
     const word = stream.current().toLowerCase();
-    // Only the first word of a node/group line is a keyword.
-    if (KEYWORDS.has(word) && stream.column() <= word.length + 2) return "keyword";
+    // Only the first word of a node/group line is a keyword (independent of indent).
+    const isFirst = !state.sawWord;
+    state.sawWord = true;
+    if (KEYWORDS.has(word) && isFirst) return "keyword";
     return "variableName";
   }
 
@@ -46,7 +50,7 @@ function tokenize(stream: StringStream, state: ArchState): string | null {
 }
 
 export const architectureLanguage = StreamLanguage.define<ArchState>({
-  startState: () => ({ afterColon: false }),
+  startState: () => ({ sawWord: false }),
   token: tokenize,
   languageData: { commentTokens: { line: "#" } },
   tokenTable: {

@@ -10,8 +10,32 @@ export const dbmlFoldService = foldService.of((state, lineStart) => {
   if (openBraceIdx < 0) return null;
 
   let depth = 0;
+  let quote: string | null = null; // active string delimiter, or null
+  let prev = "";
   for (let pos = lineStart + openBraceIdx; pos < state.doc.length; pos++) {
     const ch = state.doc.sliceString(pos, pos + 1);
+
+    if (quote) {
+      // Inside a string: only the matching, unescaped quote ends it.
+      if (ch === quote && prev !== "\\") quote = null;
+      prev = ch;
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      prev = ch;
+      continue;
+    }
+
+    // Skip a `//` line comment to end-of-line so braces inside it don't count.
+    if (ch === "/" && prev === "/") {
+      const commentLine = state.doc.lineAt(pos);
+      pos = commentLine.to;
+      prev = "\n";
+      continue;
+    }
+
     if (ch === "{") depth++;
     if (ch === "}") {
       depth--;
@@ -23,6 +47,7 @@ export const dbmlFoldService = foldService.of((state, lineStart) => {
         return null;
       }
     }
+    prev = ch;
   }
 
   return null;

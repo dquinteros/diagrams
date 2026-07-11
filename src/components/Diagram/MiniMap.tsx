@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { LayoutNode } from "../../types/layout";
 import type { ViewTransform } from "../../hooks/useViewTransform";
 import { useTheme } from "../../context/ThemeContext";
@@ -26,6 +26,22 @@ export function MiniMap({
 }: MiniMapProps) {
   const { theme } = useTheme();
   const [dragging, setDragging] = useState(false);
+  // Track the canvas SVG size in state (not by reading the ref during render) so
+  // the viewport indicator is correct on first paint and updates on resize.
+  const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setSvgSize({ width: r.width, height: r.height });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [svgRef]);
 
   const innerW = MM_WIDTH - MM_PADDING * 2;
   const innerH = MM_HEIGHT - MM_PADDING * 2;
@@ -35,9 +51,8 @@ export function MiniMap({
       : 1;
 
   // Visible viewport expressed in diagram coordinates.
-  const svgRect = svgRef.current?.getBoundingClientRect();
-  const viewW = svgRect ? svgRect.width / transform.scale : 0;
-  const viewH = svgRect ? svgRect.height / transform.scale : 0;
+  const viewW = svgSize.width / transform.scale;
+  const viewH = svgSize.height / transform.scale;
   const viewX = -transform.x / transform.scale;
   const viewY = -transform.y / transform.scale;
 

@@ -67,10 +67,7 @@ export function wrapNoteText(content: string): string[] {
     for (const word of rawLine.split(/\s+/)) {
       if (word.length > maxChars) {
         // Hard-split words longer than a full line.
-        if (line) {
-          out.push(line);
-          line = "";
-        }
+        if (line) out.push(line);
         let rest = word;
         while (rest.length > maxChars) {
           out.push(rest.slice(0, maxChars));
@@ -334,7 +331,11 @@ export function computeLayout(
   let sideY = MARGIN_Y;
 
   for (const enumBlock of schema.enums) {
-    const h = enumHeight(enumBlock.values.length);
+    // EnumNode only renders values at "full" detail; reserve matching height so
+    // stacked enums don't leave large empty gaps in lower detail levels.
+    const h = enumHeight(
+      options.detailLevel === "full" ? enumBlock.values.length : 0
+    );
     nodes.set(`enum_${enumBlock.name}`, {
       id: `enum_${enumBlock.name}`,
       x: sideX,
@@ -358,8 +359,21 @@ export function computeLayout(
   }
 
   const hasSideColumn = schema.enums.length > 0 || schema.notes.length > 0;
-  const contentWidth = hasSideColumn ? sideX + Math.max(TABLE_WIDTH, NOTE_WIDTH) : baseWidth;
-  const contentHeight = Math.max(baseHeight, sideY);
+  const nodeWidth = hasSideColumn ? sideX + Math.max(TABLE_WIDTH, NOTE_WIDTH) : baseWidth;
+
+  // Edge routing (chooseRouting) can detour a connector's elbow past the node
+  // bounds via ROUTE_GAP; include edge points so the detour isn't clipped.
+  let edgeMaxX = 0;
+  let edgeMaxY = 0;
+  for (const e of edges) {
+    for (const p of e.points) {
+      if (p.x > edgeMaxX) edgeMaxX = p.x;
+      if (p.y > edgeMaxY) edgeMaxY = p.y;
+    }
+  }
+
+  const contentWidth = Math.max(nodeWidth, edgeMaxX);
+  const contentHeight = Math.max(baseHeight, sideY, edgeMaxY);
 
   return {
     nodes,

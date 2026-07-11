@@ -29,10 +29,15 @@ export function parseArchitecture(input: string): ArchParseResult {
   let error: ArchParseResult["error"] = null;
   let edgeSeq = 0;
 
-  const ensureNode = (id: string, kind: ArchNodeKind = "component", label?: string) => {
+  const ensureNode = (
+    id: string,
+    kind: ArchNodeKind = "component",
+    label?: string,
+    group: string | undefined = currentGroup
+  ) => {
     const existing = byId.get(id);
     if (existing) return existing;
-    const node: ArchNode = { id, kind, label: label ?? id, group: currentGroup };
+    const node: ArchNode = { id, kind, label: label ?? id, group };
     byId.set(id, node);
     nodes.push(node);
     return node;
@@ -60,8 +65,10 @@ export function parseArchitecture(input: string): ArchParseResult {
     const flow = FLOW_RE.exec(line);
     if (flow) {
       const [, from, to, rawLabel, asyncMark] = flow;
-      ensureNode(from);
-      ensureNode(to);
+      // Flow endpoints are not group members unless explicitly declared inside
+      // the group — pass group: undefined so they don't inherit currentGroup.
+      ensureNode(from, "component", undefined, undefined);
+      ensureNode(to, "component", undefined, undefined);
       edges.push({
         id: `edge_${++edgeSeq}`,
         from,

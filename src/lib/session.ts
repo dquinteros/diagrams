@@ -42,20 +42,35 @@ export function loadSession(): PersistedSession | null {
 }
 
 export function saveSession(docs: Doc[], activeId: string): void {
-  try {
-    const payload: PersistedSession = {
-      activeId,
-      docs: docs.map((d) => ({
-        id: d.id,
-        filePath: d.filePath,
-        type: d.type,
-        isDirty: d.isDirty,
-        // Keep content only when it cannot be re-read from disk.
-        ...(d.isDirty || d.filePath == null ? { content: d.content } : {}),
-      })),
-    };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
-  } catch {
-    // localStorage may be unavailable
-  }
+  const persisted: PersistedDoc[] = docs.map((d) => ({
+    id: d.id,
+    filePath: d.filePath,
+    type: d.type,
+    isDirty: d.isDirty,
+    // Keep content only when it cannot be re-read from disk.
+    ...(d.isDirty || d.filePath == null ? { content: d.content } : {}),
+  }));
+
+  const write = (payloadDocs: PersistedDoc[]): boolean => {
+    try {
+      localStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({ activeId, docs: payloadDocs })
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  if (write(persisted)) return;
+
+  // The full payload didn't fit (likely a large scratch buffer over quota).
+  // Rather than losing the whole session, drop inline content — file-backed
+  // docs still restore from disk; unsaved buffers lose their text but the tab
+  // itself survives.
+  const reduced = persisted.map((d) =>
+    d.content != null ? { ...d, content: "" } : d
+  );
+  write(reduced);
 }

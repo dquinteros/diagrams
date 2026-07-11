@@ -82,9 +82,25 @@ interface DbmlState {
   inBlock: boolean;
   inString: false | "'" | '"';
   inBacktick: boolean;
+  inTriple: boolean;
+}
+
+// Consume up to and including a closing `'''`, or the rest of the line if the
+// triple-quoted string continues. Returns whether the string was closed.
+function consumeTriple(stream: StringStream): boolean {
+  while (!stream.eol()) {
+    if (stream.match("'''")) return true;
+    stream.next();
+  }
+  return false;
 }
 
 function tokenize(stream: StringStream, state: DbmlState): string | null {
+  if (state.inTriple) {
+    state.inTriple = !consumeTriple(stream);
+    return "string";
+  }
+
   if (state.inBacktick) {
     if (stream.match(/^[^`]*/)) {
       /* consume */
@@ -115,6 +131,13 @@ function tokenize(stream: StringStream, state: DbmlState): string | null {
     return "string-2";
   }
 
+  // Triple-quoted multi-line string (DBML `'''…'''`) — must be tested before the
+  // single-quote case so the three delimiters aren't split into separate tokens.
+  if (stream.match("'''")) {
+    state.inTriple = !consumeTriple(stream);
+    return "string";
+  }
+
   if (stream.eat("'")) {
     state.inString = "'";
     return "string";
@@ -125,11 +148,11 @@ function tokenize(stream: StringStream, state: DbmlState): string | null {
     return "string";
   }
 
-  if (stream.match(/^<>/) || stream.match(/^[<>\-]/)) {
+  if (stream.match(/^<>/) || stream.match(/^[<>-]/)) {
     return "operator";
   }
 
-  if (stream.match(/^[{}\[\](),.:]/)) {
+  if (stream.match(/^[{}[\](),.:]/)) {
     return "bracket";
   }
 
@@ -153,6 +176,7 @@ export const dbmlLanguage = StreamLanguage.define<DbmlState>({
     inBlock: false,
     inString: false,
     inBacktick: false,
+    inTriple: false,
   }),
   token: tokenize,
   languageData: {

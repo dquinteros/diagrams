@@ -77,7 +77,7 @@ export function RecentMenu({ files, onOpenRecent }: RecentMenuProps) {
                 padding: "6px 12px",
                 cursor: "pointer",
                 fontSize: 12,
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 textAlign: "left",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
@@ -88,7 +88,10 @@ export function RecentMenu({ files, onOpenRecent }: RecentMenuProps) {
               onMouseEnter={(e) => ((e.target as HTMLElement).style.backgroundColor = theme.controlHoverBg)}
               onMouseLeave={(e) => ((e.target as HTMLElement).style.backgroundColor = "transparent")}
             >
-              {path}
+              {/* rtl on the button truncates the path start (keeps the filename
+                  visible); bdi isolates the text as LTR so a leading "/" isn't
+                  shoved to the wrong edge. */}
+              <bdi>{path}</bdi>
             </button>
           ))}
         </div>

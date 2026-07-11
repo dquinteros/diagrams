@@ -29,10 +29,15 @@ export function parseBpmn(input: string): BpmnParseResult {
   let error: BpmnParseResult["error"] = null;
   let flowSeq = 0;
 
-  const ensureNode = (id: string, kind: BpmnNodeKind = "task", label?: string) => {
+  const ensureNode = (
+    id: string,
+    kind: BpmnNodeKind = "task",
+    label?: string,
+    lane: string | undefined = currentLane
+  ) => {
     const existing = byId.get(id);
     if (existing) return existing;
-    const node: BpmnNode = { id, kind, label: label ?? id, lane: currentLane };
+    const node: BpmnNode = { id, kind, label: label ?? id, lane };
     byId.set(id, node);
     nodes.push(node);
     return node;
@@ -56,8 +61,9 @@ export function parseBpmn(input: string): BpmnParseResult {
     const flow = FLOW_RE.exec(line);
     if (flow) {
       const [, from, to, rawLabel] = flow;
-      ensureNode(from);
-      ensureNode(to);
+      // Flow endpoints don't belong to a lane unless explicitly declared in one.
+      ensureNode(from, "task", undefined, undefined);
+      ensureNode(to, "task", undefined, undefined);
       flows.push({
         id: `flow_${++flowSeq}`,
         from,

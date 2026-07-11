@@ -128,6 +128,9 @@ export function computeArchitectureLayout(ir: ArchIR): ArchCanvasLayout {
   const outBy = new Map<string, string[]>();
   const inBy = new Map<string, string[]>();
   for (const e of ir.edges) {
+    // Only count edges that are actually drawn (both endpoints placed), so the
+    // spread index/length matches the edge loop and connectors stay aligned.
+    if (!placed.has(e.from) || !placed.has(e.to)) continue;
     (outBy.get(e.from) ?? outBy.set(e.from, []).get(e.from)!).push(e.id);
     (inBy.get(e.to) ?? inBy.set(e.to, []).get(e.to)!).push(e.id);
   }

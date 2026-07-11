@@ -12,7 +12,19 @@ export function loadPositions(key: string): Map<string, Override> | null {
   try {
     const raw = localStorage.getItem(POSITIONS_PREFIX + key);
     if (!raw) return null;
-    const entries = JSON.parse(raw) as [string, Override][];
+    const parsed = JSON.parse(raw) as unknown[];
+    if (!Array.isArray(parsed)) return null;
+    // Drop schema-drifted/legacy entries so a missing or non-numeric coordinate
+    // can't propagate to NaN positions that render nodes off-screen.
+    const entries = parsed.filter(
+      (e): e is [string, Override] =>
+        Array.isArray(e) &&
+        typeof e[0] === "string" &&
+        !!e[1] &&
+        typeof e[1] === "object" &&
+        Number.isFinite((e[1] as Override).x) &&
+        Number.isFinite((e[1] as Override).y)
+    );
     return new Map(entries);
   } catch {
     return null;
@@ -35,10 +47,13 @@ export function loadTransform(key: string): ViewTransform | null {
     const raw = localStorage.getItem(VIEW_PREFIX + key);
     if (!raw) return null;
     const t = JSON.parse(raw) as ViewTransform;
+    // scale must be finite and strictly positive: a persisted 0/NaN renders a
+    // blank canvas and makes every zoom divide by it, corrupting the camera.
     if (
-      typeof t.x === "number" &&
-      typeof t.y === "number" &&
-      typeof t.scale === "number"
+      Number.isFinite(t.x) &&
+      Number.isFinite(t.y) &&
+      Number.isFinite(t.scale) &&
+      t.scale > 0
     ) {
       return t;
     }

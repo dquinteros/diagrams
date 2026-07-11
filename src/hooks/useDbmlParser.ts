@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "../lib/tauri";
 import type { SchemaIR, ParseError, ParseResult } from "../types/schema";
 
 interface UseDbmlParserResult {
@@ -18,6 +19,27 @@ export function useDbmlParser(content: string): UseDbmlParserResult {
 
   const parse = useCallback(async (input: string) => {
     const requestId = ++requestIdRef.current;
+
+    // Nothing to parse: clear the canvas without a needless IPC round-trip.
+    if (input.trim() === "") {
+      setSchema(null);
+      setParseError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // No desktop backend (plain browser): the Rust parser is unreachable, so
+    // show a clear note instead of a cryptic "Cannot read … 'invoke'" error.
+    if (!isTauri()) {
+      setSchema(null);
+      setParseError({
+        message: "DBML preview runs in the desktop app.",
+        span: null,
+      });
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await invoke<ParseResult>("parse_dbml", { input });

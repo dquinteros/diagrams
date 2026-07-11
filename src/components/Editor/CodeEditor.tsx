@@ -111,7 +111,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
       scrollToOffset(offset: number) {
         const view = viewRef.current;
         if (!view) return;
-        const safeOffset = Math.min(offset, view.state.doc.length);
+        const safeOffset = Math.max(0, Math.min(offset, view.state.doc.length));
         view.dispatch({
           selection: { anchor: safeOffset },
           effects: EditorView.scrollIntoView(safeOffset, { y: "center" }),

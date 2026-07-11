@@ -35,8 +35,13 @@ function triggerDownload(blob: Blob, filename: string): void {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  // The anchor must be in the document and the URL must stay alive until the
+  // browser has read the blob — a programmatic click on a detached anchor is
+  // ignored on WebKit (macOS Tauri), and revoking synchronously races the read.
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -77,7 +82,10 @@ async function svgToCanvas(
 export function exportSvg(width: number, height: number): void {
   const svg = buildExportSvg(width, height);
   if (!svg) throw new Error("No diagram to export");
-  const blob = new Blob([svg.outerHTML], { type: "image/svg+xml" });
+  // Use the XML serializer (not .outerHTML, an HTML serializer) so the standalone
+  // file keeps proper XML/namespace syntax and opens in Inkscape/browsers.
+  const xml = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
   triggerDownload(blob, "diagram.svg");
 }
 

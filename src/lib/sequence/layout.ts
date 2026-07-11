@@ -138,11 +138,22 @@ export function layoutSequence(ir: SequenceIR): SeqLayout {
         let x: number;
         let w: number;
         if (ev.position === "over") {
-          const xs = ev.participants.map(cxOf);
-          const min = Math.min(...xs);
-          const max = Math.max(...xs);
-          w = Math.max(textW, max - min + HEADER_W);
-          x = (min + max) / 2 - w / 2;
+          // A note with no explicit targets ("note over : x") spans all
+          // participants; guard the empty case so Math.min/max don't yield NaN
+          // and corrupt the diagram width.
+          const ids = ev.participants.length
+            ? ev.participants
+            : participants.map((p) => p.id);
+          const xs = ids.map(cxOf);
+          if (xs.length === 0) {
+            w = textW;
+            x = MARGIN_X;
+          } else {
+            const min = Math.min(...xs);
+            const max = Math.max(...xs);
+            w = Math.max(textW, max - min + HEADER_W);
+            x = (min + max) / 2 - w / 2;
+          }
         } else {
           const c = cxOf(ev.participants[0] ?? "");
           w = textW;

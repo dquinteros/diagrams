@@ -56,9 +56,15 @@ export function parseSequence(input: string): SequenceParseResult {
       continue;
     }
 
+    // If the line contains a real arrow it's a message, even when its first
+    // word is a fragment/activate keyword (e.g. a participant named "loop").
+    // The note branch below is checked before we fall through to messages and is
+    // anchored on its own prefix, so note text containing an arrow still wins.
+    const asMessage = parseMessage(line);
+
     // activate / deactivate
     const act = /^(activate|deactivate)\s+(.+)$/i.exec(line);
-    if (act) {
+    if (act && !asMessage) {
       const participant = act[2].trim();
       ensureParticipant(participant);
       events.push(
@@ -84,7 +90,7 @@ export function parseSequence(input: string): SequenceParseResult {
 
     // fragments
     const fragStart = new RegExp(`^(${FRAGMENT_KEYWORDS.join("|")})\\b(.*)$`, "i").exec(line);
-    if (fragStart) {
+    if (fragStart && !asMessage) {
       fragmentDepth++;
       events.push({
         kind: "fragment-start",
@@ -107,11 +113,10 @@ export function parseSequence(input: string): SequenceParseResult {
     }
 
     // message: <from> <arrow>[+|-] <to> : <text>
-    const msg = parseMessage(line);
-    if (msg) {
-      ensureParticipant(msg.from);
-      ensureParticipant(msg.to);
-      events.push(msg);
+    if (asMessage) {
+      ensureParticipant(asMessage.from);
+      ensureParticipant(asMessage.to);
+      events.push(asMessage);
       continue;
     }
 

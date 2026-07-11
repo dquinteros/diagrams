@@ -11,14 +11,15 @@ const KEYWORDS = new Set([
   "xor",
   "and",
   "event",
+  "lane",
 ]);
 
 interface BpmnState {
-  afterColon: boolean;
+  sawWord: boolean;
 }
 
 function tokenize(stream: StringStream, state: BpmnState): string | null {
-  if (stream.sol()) state.afterColon = false;
+  if (stream.sol()) state.sawWord = false;
   if (stream.eatSpace()) return null;
 
   if (stream.match("#") || stream.match("//")) {
@@ -31,17 +32,21 @@ function tokenize(stream: StringStream, state: BpmnState): string | null {
     while (!stream.eol()) {
       if (stream.next() === quote) break;
     }
+    state.sawWord = true;
     return "string";
   }
 
   if (stream.match("->") || stream.eat(":")) {
+    state.sawWord = true;
     return "operator";
   }
 
   if (stream.match(/^[A-Za-z_][\w-]*/)) {
     const word = stream.current().toLowerCase();
-    // Only the first word of a node line is a keyword.
-    if (KEYWORDS.has(word) && stream.column() <= word.length + 2) return "keyword";
+    // Only the first word of a node line is a keyword (independent of indent).
+    const isFirst = !state.sawWord;
+    state.sawWord = true;
+    if (KEYWORDS.has(word) && isFirst) return "keyword";
     return "variableName";
   }
 
@@ -50,7 +55,7 @@ function tokenize(stream: StringStream, state: BpmnState): string | null {
 }
 
 export const bpmnLanguage = StreamLanguage.define<BpmnState>({
-  startState: () => ({ afterColon: false }),
+  startState: () => ({ sawWord: false }),
   token: tokenize,
   languageData: { commentTokens: { line: "#" } },
   tokenTable: {
