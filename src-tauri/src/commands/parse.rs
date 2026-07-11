@@ -8,9 +8,8 @@ pub struct ParseResult {
     pub error: Option<ParseError>,
 }
 
-#[tauri::command]
-pub fn parse_dbml(input: String) -> ParseResult {
-    let (cleaned, sticky_notes) = preprocess::preprocess(&input);
+fn parse_dbml_sync(input: &str) -> ParseResult {
+    let (cleaned, sticky_notes) = preprocess::preprocess(input);
     match dbml_rs::parse_dbml(&cleaned) {
         Ok(ast) => {
             let mut schema = convert::convert_schema(&ast);
@@ -34,4 +33,20 @@ pub fn parse_dbml(input: String) -> ParseResult {
             }
         }
     }
+}
+
+// Async + spawn_blocking: dbml-rs is superlinear (~600ms at 1000 tables), so
+// the parse runs on the blocking pool instead of stalling other IPC commands
+// (file ops, window close) behind it.
+#[tauri::command]
+pub async fn parse_dbml(input: String) -> ParseResult {
+    tauri::async_runtime::spawn_blocking(move || parse_dbml_sync(&input))
+        .await
+        .unwrap_or_else(|e| ParseResult {
+            schema: None,
+            error: Some(ParseError {
+                message: format!("parse task failed: {e}"),
+                span: None,
+            }),
+        })
 }
