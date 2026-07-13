@@ -572,7 +572,7 @@ dependencies = [
 
 [[package]]
 name = "diagrams"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "dbml-rs",
  "pest",
